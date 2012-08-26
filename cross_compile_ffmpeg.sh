@@ -3,6 +3,7 @@
 # ffmpeg windows cross compile helper/downloader script
 ################################################################################
 # Copyright (C) 2012 Roger Pack
+# Copyright (C) 2012 Michael Anisimoff
 #
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU General Public License as published by the Free Software
@@ -18,6 +19,7 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 # The GNU General Public License can be found in the LICENSE file.
+################################################################################
 
 yes_no_sel () {
 unset user_input
@@ -338,7 +340,7 @@ build_vo_aacenc() {
 
 build_sdl() {
   # apparently ffmpeg expects prefix-sdl-config not sdl-config that they give us, so rename...
-  export CFLAGS=
+  export CFLAGS="-DDECLSPEC=" #-DDECLSPEC is needed for shared build
   generic_download_and_install http://www.libsdl.org/release/SDL-1.2.15.tar.gz SDL-1.2.15
   unset CFLAGS
   mkdir temp
@@ -362,6 +364,11 @@ build_lame() {
 
 
 build_ffmpeg() {
+  if [[ "$1" = "shared" ]]; then 
+    local ffshared="shared"
+  else
+    local ffshared="static"
+  fi
   do_git_checkout https://github.com/FFmpeg/FFmpeg.git ffmpeg_git
   cd ffmpeg_git
   if [ "$bits_target" = "32" ]; then
@@ -383,7 +390,9 @@ build_ffmpeg() {
   else
     config_options="$config_options --enable-runtime-cpudetect"
   fi
-  
+  if [[ "$ffshared" = "shared" ]] ; then
+    config_options="$config_options --disable-static --enable-shared"
+  fi
   do_configure "$config_options"
   rm -f *.exe # just in case some library dependency was updated, force it to re-link
   echo "ffmpeg: doing PATH=$PATH make"
@@ -422,6 +431,7 @@ build_all() {
   build_openssl
   build_librtmp # needs openssl today [TODO use gnutls]
   build_ffmpeg
+  #build_ffmpeg shared
 }
 
 original_path="$PATH"
