@@ -396,7 +396,8 @@ build_ffmpeg() {
   do_configure "$config_options"
   rm -f *.exe # just in case some library dependency was updated, force it to re-link
   echo "ffmpeg: doing PATH=$PATH make"
-  make || exit 1
+  local ffcpucount=`grep -c ^processor /proc/cpuinfo`
+  make -j${ffcpucount} || exit 1
   local cur_dir2=$(pwd)
   echo "Done! You will find binaries in $cur_dir2/ff{mpeg,probe,play}*.exe"
   cd ..
