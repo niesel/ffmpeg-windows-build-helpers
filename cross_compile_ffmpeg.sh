@@ -21,12 +21,42 @@
 # The GNU General Public License can be found in the LICENSE file.
 ################################################################################
 
+# Directory where finally the ffmpeg builds should be put at. (if unset, cur_dir will be used) 
+ffbasedir=
+#Build directory
+cur_dir="$(pwd)/build"
+
+################################################################################
+# Text color variables
+WARN='\e[1;31m'   # red - Bold
+PASS='\e[1;32m'   # green
+INFO='\e[1;33m'   # yellow
+QUES='\e[1;36m'   # cyan
+RST='\e[0m'       # Text reset
+
+if [[ "${ffbasedir}" = "" || "${ffbasedir}" = "${cur_dir}" ]]; then
+    ffbasedir="${cur_dir}"
+elif [[ -d "${ffbasedir}" ]]; then
+    if [[ -w "${ffbasedir}" ]]; then
+        echo -e "${PASS}\nTarget directory is ${ffbasedir}.${RST}"
+     else
+        echo -e "${WARN}\n Target directory ${ffbasedir} is not writeable.\n Exiting.${RST}}"; exit 1
+    fi 
+
+else
+    mkdir -p ${ffbasedir}
+    if [[ ! -w "${ffbasedir}" ]]; then
+        echo -e "${WARN}\n Target directory ${ffbasedir} not existing and could not be created.\n Exiting.${RST}}"; exit 1
+    fi
+fi
+
+
 yes_no_sel () {
 unset user_input
 local question="$1"
 shift
 while [[ "$user_input" != [YyNn] ]]; do
-  echo -n "$question"
+  echo -e "$question\c"
   read user_input
   if [[ "$user_input" != [YyNn] ]]; then
     clear; echo 'Your selection was not vaild, please try again.'; echo
@@ -36,7 +66,7 @@ done
 user_input=$(echo $user_input | tr '[A-Z]' '[a-z]')
 }
 
-cur_dir="$(pwd)/builds"
+
 
 intro() {
   cat <<EOL
@@ -131,9 +161,12 @@ do_configure() {
   local english_name=$(basename $cur_dir2)
   local touch_name=$(echo -- $configure_options | /usr/bin/env md5sum) # sanitize, disallow too long of length
   touch_name=$(echo already_configured_$touch_name | sed "s/ //g") # add prefix so we can delete it easily, remove spaces
-  if [ ! -f "$touch_name" ]; then
-    echo "configuring $english_name as $ PATH=$PATH $configure_name $configure_options"
-    make clean # just in case
+  if [ $english_name = "ffmpeg_git" -o ! -f "$touch_name" ]; then # always reconfigure ffmpeg-git
+    if [ $english_name = "ffmpeg_git" ]; then
+        make -s distclean  # make distclean before configure (only ffmpeg_git)
+    fi
+    echo -e "\n${INFO}configuring $english_name as $ PATH=$PATH $configure_name $configure_options${RST}\n"
+    make -s clean # just in case
     #make uninstall # does weird things when used with ffmpeg
     if [ -f bootstrap.sh ]; then
       ./bootstrap.sh
@@ -142,7 +175,7 @@ do_configure() {
     rm -f already_ran_make
     "$configure_name" $configure_options || exit 1
     touch -- "$touch_name"
-    make clean # just in case
+    make -s clean # just in case
   else
     echo "already configured $cur_dir2" 
   fi
@@ -371,13 +404,26 @@ build_ffmpeg() {
   fi
   do_git_checkout https://github.com/FFmpeg/FFmpeg.git ffmpeg_git
   cd ffmpeg_git
+  git checkout master; git reset --hard; git checkout master #reset git to master 
+  local ffgit=`git rev-parse --short HEAD`
+  local ffdate=`date +%Y%m%d`
   if [ "$bits_target" = "32" ]; then
-   local arch=x86
+    local arch=x86
+    local ffarch=win32
   else
-   local arch=x86_64
+    local arch=x86_64
+    local ffarch=win64
+  fi
+  local ffdir="ffmpeg-${ffdate}-${ffgit}-${ffarch}-${ffshared}"
+  local ffpath="${ffbasedir}/${ffdir}"
+  if [[ -d "${ffpath}" ]]; then
+    rm -rf ${ffbasedir}/${ffdir}/*
+  else
+    mkdir -p "${ffpath}"
   fi
 
-  config_options="--enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32  --cross-prefix=$cross_prefix --pkg-config=pkg-config --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-gnutls --enable-libgsm --enable-libfreetype"
+  config_options="--prefix=$ffpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32  --cross-prefix=$cross_prefix --pkg-config=pkg-config --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-gnutls --enable-libgsm --enable-libfreetype"
+  
   if [[ "$non_free" = "y" ]]; then
     config_options="$config_options --enable-nonfree --enable-openssl --enable-libfdk-aac" # --enable-libfaac -- faac too poor quality and becomes the default -- add it in and uncomment the build_faac line to include it
   else
@@ -398,8 +444,14 @@ build_ffmpeg() {
   echo "ffmpeg: doing PATH=$PATH make"
   local ffcpucount=`grep -c ^processor /proc/cpuinfo`
   make -j${ffcpucount} || exit 1
+  make install
   local cur_dir2=$(pwd)
-  echo "Done! You will find binaries in $cur_dir2/ff{mpeg,probe,play}*.exe"
+  cd ${ffbasedir}
+  cp -r ${cur_dir2}/doc ${ffpath}/ #cp docs to install dir
+  tar -cjf ${ffdir}.tar.bz2 ${ffdir} # bzip 
+  rm -rf ${ffdir}/* && rmdir ${ffdir}
+  cd ${cur_dir2}
+  echo -e "${PASS}\n Done! You will find the bz2 packed binaries in ${ffbasedir} ${RST}\n"
   cd ..
 }
 
@@ -432,7 +484,7 @@ build_all() {
   build_openssl
   build_librtmp # needs openssl today [TODO use gnutls]
   build_ffmpeg
-  #build_ffmpeg shared
+  build_ffmpeg shared
 }
 
 original_path="$PATH"
