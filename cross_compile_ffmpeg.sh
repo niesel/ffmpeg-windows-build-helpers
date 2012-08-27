@@ -25,6 +25,8 @@
 ffbasedir=
 #Build directory
 cur_dir="$(pwd)/build"
+#Target directory for bz2-files (if unset, no .tar.bz will be made)
+ffbz2target="${cur_dir}/bz2"
 
 ################################################################################
 # Text color variables
@@ -450,8 +452,10 @@ build_ffmpeg() {
   local cur_dir2=$(pwd)
   cd ${ffbasedir}
   cp -r ${cur_dir2}/doc ${ffpath}/ #cp docs to install dir
-  tar -cjf ${ffdir}.tar.bz2 ${ffdir} # bzip 
-  rm -rf ${ffdir}/* && rmdir ${ffdir}
+  if [[ ! ${ffbz2target} = ""]]; then
+    tar -cjf ${ffdir}.tar.bz2 ${ffdir} # bzip 
+    rm -rf ${ffdir}/* && rmdir ${ffdir}
+  fi  
   cd ${cur_dir2}
   echo -e "${PASS}\n Done! You will find the bz2 packed binaries in ${ffbasedir} ${RST}\n"
   cd ..
