@@ -95,14 +95,6 @@ intro() {
   echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
   yes_no_sel "${QUES}Include non-free?${RST} [y/n]?"
   non_free="$user_input" # save it away
-  
-  echo -e "\nWould you like to compile with -march=native, which can get a few percent speedup?"
-  echo -e "But also makes it so you cannot distribute the binary to machines of other architecture/cpu!"
-  echo -e "Also note that you should only enable this if compiling on a VM on the same box you intend to target!"
-  echo -e "Otherwise it makes no sense!"
-  echo -e "${WARN}!!! THIS IS JUST EXPERIMENTAL AND DOES NOT WORK FULLY YET! If unsure - choose 'n' !!!${RST}"
-  yes_no_sel "${QUES}Use march=native?${RST} [y/n]?" 
-  #user_input="$user_input" #uneeded
 }
 
 install_cross_compiler() {
