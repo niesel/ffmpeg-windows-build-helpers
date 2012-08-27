@@ -470,8 +470,8 @@ build_ffmpeg() {
   local cur_dir2=$(pwd)
   cd ${ffbasedir}
   cp -r ${cur_dir2}/doc ${ffpath}/ #cp docs to install dir
-  if [[ ! ${ffbz2target} = "" ]]; then
-    tar -cjf ${ffdir}.tar.bz2 ${ffdir} # bzip 
+  if [[ ! "${ffbz2target}" = "" ]]; then
+    tar -cjf "${ffbz2target}"/${ffdir}.tar.bz2 ${ffdir} # bzip 
     rm -rf ${ffdir}/* && rmdir ${ffdir}
   fi  
   cd ${cur_dir2}
