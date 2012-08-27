@@ -27,6 +27,9 @@ ffbasedir=
 cur_dir="$(pwd)/build"
 #Target directory for bz2-files (if unset, no .tar.bz will be made)
 ffbz2target="${cur_dir}/bz2"
+#Build static and shared versions
+ffbuildstatic=false
+ffbuildshared=false
 
 ################################################################################
 # Text color variables
@@ -58,7 +61,7 @@ unset user_input
 local question="$1"
 shift
 while [[ "$user_input" != [YyNn] ]]; do
-  echo -e "$question\c"
+  echo -e "$question \c"
   read user_input
   if [[ "$user_input" != [YyNn] ]]; then
     echo -e "\n${WARN}Your selection was not vaild, please try again.\n${RST}"
@@ -85,18 +88,33 @@ intro() {
   if [[ ! -d "${cur_dir}" ]]; then
     mkdir -p "$cur_dir"
 	if [[ ! -d "${cur_dir}" ]]; then
-		echo -e "${WARN}Could not create subdir ./builds.\nExiting${RST}"; exit 1
+		echo -e "\n${WARN}Could not create subdir ./builds.\nExiting${RST}"; exit 1
 	fi
   else
     if [[ ! -w "${cur_dir}" ]]; then
-        echo -e "${WARN}No write permissions in ./builds.\nExiting${RST}"; exit 1
+        echo -e "\n${WARN}No write permissions in ./builds.\nExiting${RST}"; exit 1
     fi
   fi
   cd "$cur_dir"
+  
   echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
   echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
   yes_no_sel "${QUES}Include non-free?${RST} [y/n]?"
   non_free="$user_input" # save it away
+  
+  yes_no_sel "\n${QUES}Would you like to make a static build?${RST} [y/n]?"
+  if [[ "$user_input" = "y" ]]; then 
+    ffbuildstatic=true
+    echo "${ffbuildstatic}"
+  fi  
+  yes_no_sel "\n${QUES}Would you like to make a shared build?${RST} [y/n]?"
+  if [[ "$user_input" = "y" ]]; then 
+    ffbuildshared=true
+    echo "${ffbuildshared}"
+  fi 
+  if ! $ffbuildstatic && ! $ffbuildshared; then
+    echo -e "\n${WARN}Neither static nor shared build selected!\nExiting${RST}"; exit 1
+  fi
 }
 
 install_cross_compiler() {
@@ -452,7 +470,7 @@ build_ffmpeg() {
   local cur_dir2=$(pwd)
   cd ${ffbasedir}
   cp -r ${cur_dir2}/doc ${ffpath}/ #cp docs to install dir
-  if [[ ! ${ffbz2target} = ""]]; then
+  if [[ ! ${ffbz2target} = "" ]]; then
     tar -cjf ${ffdir}.tar.bz2 ${ffdir} # bzip 
     rm -rf ${ffdir}/* && rmdir ${ffdir}
   fi  
@@ -489,8 +507,12 @@ build_all() {
   fi
   build_openssl
   build_librtmp # needs openssl today [TODO use gnutls]
-  build_ffmpeg
-  build_ffmpeg shared
+  if $ffbuildstatic; then
+    build_ffmpeg
+  fi
+  if $ffbuildshared; then  
+    build_ffmpeg shared
+  fi
 }
 
 original_path="$PATH"
