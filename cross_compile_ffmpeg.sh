@@ -59,7 +59,7 @@ while [[ "$user_input" != [YyNn] ]]; do
   echo -e "$question\c"
   read user_input
   if [[ "$user_input" != [YyNn] ]]; then
-    clear; echo 'Your selection was not vaild, please try again.'; echo
+    echo -e "\n${WARN}Your selection was not vaild, please try again.\n${RST}"
   fi
 done
 # downcase it
@@ -69,38 +69,51 @@ user_input=$(echo $user_input | tr '[A-Z]' '[a-z]')
 
 
 intro() {
-  cat <<EOL
-     ##################### Welcome ######################
-  Welcome to the ffmpeg cross-compile builder-helper script.
-  Downloads and builds will be installed to directories within $cur_dir
-  If this is not ok, then exit now, and cd to the directory where you'd
-  like them installed, then run this script again.
-EOL
+    echo -e "\n######################### Welcome ###########################"
+    echo -e "Welcome to the ffmpeg cross-compile builder-helper script."
+    echo -e "Downloads and builds will be processed within the folder"
+    echo -e "    $cur_dir"
+    echo -e "If this is not ok, then exit now, and cd to the directory where"
+    echo -e "you would like them installed, then run this script again."
 
-  yes_no_sel "Is ./builds ok [y/n]?"
-  if [[ "$user_input" = "n" ]]; then
+  yes_no_sel "${QUES}Is $cur_dir ok? ${RST}[y/n]?"
+  if [[ "${user_input}" = "n" ]]; then
     exit 1
   fi
-  mkdir -p "$cur_dir"
+  if [[ ! -d "${cur_dir}" ]]; then
+    mkdir -p "$cur_dir"
+	if [[ ! -d "${cur_dir}" ]]; then
+		echo -e "${WARN}Could not create subdir ./builds.\nExiting${RST}"; exit 1
+	fi
+  else
+    if [[ ! -w "${cur_dir}" ]]; then
+        echo -e "${WARN}No write permissions in ./builds.\nExiting${RST}"; exit 1
+    fi
+  fi
   cd "$cur_dir"
-  yes_no_sel "Would you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders
-The resultant binary will not be distributable, but might be useful for in-house use. Include non-free [y/n]?"
+  echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
+  echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
+  yes_no_sel "${QUES}Include non-free?${RST} [y/n]?"
   non_free="$user_input" # save it away
-  yes_no_sel "Would you like to compile with -march=native, which can get a few percent speedup
-but also makes it so you cannot distribute the binary to machines of other architecture/cpu 
-(also note that you should only enable this if compiling on a VM on the same box you intend to target, otherwise
-it makes no sense)  Use march=native? THIS IS JUST EXPERIMENTAL AND DOES NOT WORK FULLY YET--choose n typically. [y/n]?" 
-  user_input="$user_input"
+  
+  echo -e "\nWould you like to compile with -march=native, which can get a few percent speedup?"
+  echo -e "But also makes it so you cannot distribute the binary to machines of other architecture/cpu!"
+  echo -e "Also note that you should only enable this if compiling on a VM on the same box you intend to target!"
+  echo -e "Otherwise it makes no sense!"
+  echo -e "${WARN}!!! THIS IS JUST EXPERIMENTAL AND DOES NOT WORK FULLY YET! If unsure - choose 'n' !!!${RST}"
+  yes_no_sel "${QUES}Use march=native?${RST} [y/n]?" 
+  #user_input="$user_input" #uneeded
 }
 
 install_cross_compiler() {
   if [[ -f "mingw-w64-i686/compiler.done" || -f "mingw-w64-x86_64/compiler.done" ]]; then
-   echo "MinGW-w64 compiler of some type already installed, not re-installing it..."
+   echo -e "\n${PASS}MinGW-w64 compiler of some type already installed, not re-installing it...${RST}\n"
    return
   fi
-  read -p 'First we will download and compile a gcc cross-compiler (MinGW-w64).
-  You will be prompted with a few questions as it installs (it takes quite awhile).
-  Enter to continue:'
+  echo -e "\nFirst we will download and compile a gcc cross-compiler (MinGW-w64)."
+  echo -e "You will be prompted with a few questions as it installs. (it takes quite a while)"
+  echo -e "${QUES}Enter to continue:${RST}\c"
+  read -p ''
 
   wget http://zeranoe.com/scripts/mingw_w64_build/mingw-w64-build-3.0.6 -O mingw-w64-build-3.0.6
   chmod u+x mingw-w64-build-3.0.6
@@ -111,8 +124,7 @@ install_cross_compiler() {
   if [ -d mingw-w64-i686 ]; then
     touch mingw-w64-i686/compiler.done
   fi
-  clear
-  echo "Ok, done building MinGW-w64 cross-compiler..."
+  echo -e "${PASS}Ok, done building MinGW-w64 cross-compiler...${RST}\n"
 }
 
 setup_env() {
@@ -123,12 +135,12 @@ do_svn_checkout() {
   repo_url="$1"
   to_dir="$2"
   if [ ! -d $to_dir ]; then
-    echo "svn checking out to $to_dir"
+    echo -e "${INFO}svn checking out to $to_dir ${RST}"
     svn checkout $repo_url $to_dir.tmp || exit 1
     mv $to_dir.tmp $to_dir
   else
     cd $to_dir
-    echo "Updating $to_dir"
+    echo -e "${INFO}Updating $to_dir ${RST}"
     svn up
     cd ..
   fi
@@ -138,14 +150,14 @@ do_git_checkout() {
   repo_url="$1"
   to_dir="$2"
   if [ ! -d $to_dir ]; then
-    echo "Downloading (via git clone) $to_dir"
+    echo -e "${INFO}Downloading (via git clone) $to_dir ${RST}"
     # prevent partial checkouts by renaming it only after success
     git clone $repo_url $to_dir.tmp || exit 1
     mv $to_dir.tmp $to_dir
-    echo "done downloading $to_dir"
+    echo -e "${INFO}done downloading $to_dir ${RST}"
   else
     cd $to_dir
-    echo "Updating to latest $to_dir version..."
+    echo -e "${INFO}Updating to latest $to_dir version... ${RST}"
     git pull
     cd ..
   fi
@@ -177,7 +189,7 @@ do_configure() {
     touch -- "$touch_name"
     make -s clean # just in case
   else
-    echo "already configured $cur_dir2" 
+    echo -e "\n${INFO}already configured $cur_dir2 ${RST}\n" 
   fi
 }
 
@@ -185,12 +197,12 @@ do_make_install() {
   extra_make_options="$1"
   local cur_dir2=$(pwd)
   if [ ! -f already_ran_make ]; then
-    echo "making $cur_dir2 as $ PATH=$PATH make $extra_make_options"
+    echo -e "\n${INFO}making $cur_dir2 as $ PATH=$PATH make $extra_make_options ${RST}\n"
     make $extra_make_options || exit 1
     make install $extra_make_options || exit 1
     touch already_ran_make
   else
-    echo "already did make $(basename "$cur_dir2")"
+    echo -e "\n${INFO}already did make $(basename "$cur_dir2") ${RST}\n"
   fi
 }
 
@@ -426,10 +438,8 @@ build_ffmpeg() {
   
   if [[ "$non_free" = "y" ]]; then
     config_options="$config_options --enable-nonfree --enable-openssl --enable-libfdk-aac" # --enable-libfaac -- faac too poor quality and becomes the default -- add it in and uncomment the build_faac line to include it
-  else
-    config_options="$config_options"
   fi
-
+  
   if [[ "$native_build" = "y" ]]; then
     config_options="$config_options --disable-runtime-cpudetect"
     # TODO --cpu=host
@@ -441,7 +451,7 @@ build_ffmpeg() {
   fi
   do_configure "$config_options"
   rm -f *.exe # just in case some library dependency was updated, force it to re-link
-  echo "ffmpeg: doing PATH=$PATH make"
+  echo -e "\n${INFO}ffmpeg: doing PATH=$PATH make${RST}\n"
   local ffcpucount=`grep -c ^processor /proc/cpuinfo`
   make -j${ffcpucount} || exit 1
   make install
@@ -489,7 +499,7 @@ build_all() {
 
 original_path="$PATH"
 if [ -d "mingw-w64-i686" ]; then # they installed a 32-bit compiler
-  echo "Building 32-bit ffmpeg..."
+  echo -e "\n${INFO}Building 32-bit ffmpeg...${RST}\n"
   host_target='i686-w64-mingw32'
   mingw_w64_x86_64_prefix="$cur_dir/mingw-w64-i686/$host_target"
   export PATH="$cur_dir/mingw-w64-i686/bin:$original_path"
@@ -503,7 +513,7 @@ if [ -d "mingw-w64-i686" ]; then # they installed a 32-bit compiler
 fi
 
 if [ -d "mingw-w64-x86_64" ]; then # they installed a 64-bit compiler
-  echo "Building 64-bit ffmpeg..."
+  echo -e "\n${INFO}Building 64-bit ffmpeg...${RST}\n"
   host_target='x86_64-w64-mingw32'
   mingw_w64_x86_64_prefix="$cur_dir/mingw-w64-x86_64/$host_target"
   export PATH="$cur_dir/mingw-w64-x86_64/bin:$original_path"
@@ -517,4 +527,4 @@ if [ -d "mingw-w64-x86_64" ]; then # they installed a 64-bit compiler
 fi
 
 cd ..
-echo 'done with ffmpeg cross compiler script'
+echo -e "${WARN}\n All complete. Ending ffmpeg cross compiler script.\n Bye.${RST}\n "
