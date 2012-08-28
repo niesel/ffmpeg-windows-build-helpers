@@ -20,17 +20,14 @@
 #
 # The GNU General Public License can be found in the LICENSE file.
 ################################################################################
-
-# Directory where finally the ffmpeg builds should be put at. (if unset, cur_dir will be used) 
-ffbasedir=
+#
 #Build directory
 cur_dir="$(pwd)/build"
 #Target directory for bz2-files (if unset, no .tar.bz will be made)
-ffbz2target="${cur_dir}/bz2"
+ffbz2target="$(pwd))/bz2"
 #Build static and shared versions
 ffbuildstatic=false
 ffbuildshared=false
-
 ################################################################################
 # Text color variables
 WARN='\e[1;31m'   # red - Bold
@@ -38,23 +35,7 @@ PASS='\e[1;32m'   # green
 INFO='\e[1;33m'   # yellow
 QUES='\e[1;36m'   # cyan
 RST='\e[0m'       # Text reset
-
-if [[ "${ffbasedir}" = "" || "${ffbasedir}" = "${cur_dir}" ]]; then
-    ffbasedir="${cur_dir}"
-elif [[ -d "${ffbasedir}" ]]; then
-    if [[ -w "${ffbasedir}" ]]; then
-        echo -e "${PASS}\nTarget directory is ${ffbasedir}.${RST}"
-     else
-        echo -e "${WARN}\n Target directory ${ffbasedir} is not writeable.\n Exiting.${RST}}"; exit 1
-    fi 
-
-else
-    mkdir -p ${ffbasedir}
-    if [[ ! -w "${ffbasedir}" ]]; then
-        echo -e "${WARN}\n Target directory ${ffbasedir} not existing and could not be created.\n Exiting.${RST}}"; exit 1
-    fi
-fi
-
+################################################################################
 
 yes_no_sel () {
 unset user_input
@@ -71,7 +52,22 @@ done
 user_input=$(echo $user_input | tr '[A-Z]' '[a-z]')
 }
 
-
+make_dir () {
+    if [[ ! -d "$*" ]]; then
+        mkdir -p "$*" 
+        if [[ ! -d "$*" ]]; then
+            echo -e "\n${WARN}Could not create $*.\nExiting! ${RST}"; exit 1
+        else
+            echo -e "\n${PASS}Successfully created $* ${RST}"
+        fi
+    else
+        if [[ ! -w "${cur_dir}" ]]; then
+            echo -e "\n${WARN}No write permissions in $*.\nExiting! ${RST}"; exit 1
+        else
+            echo -e "\n${PASS} Directory $* already exists and is writeable. ${RST}"
+        fi
+    fi
+}
 
 intro() {
     echo -e "\n######################### Welcome ###########################"
@@ -85,16 +81,8 @@ intro() {
   if [[ "${user_input}" = "n" ]]; then
     exit 1
   fi
-  if [[ ! -d "${cur_dir}" ]]; then
-    mkdir -p "$cur_dir"
-	if [[ ! -d "${cur_dir}" ]]; then
-		echo -e "\n${WARN}Could not create ${cur_dir}.\nExiting${RST}"; exit 1
-	fi
-  else
-    if [[ ! -w "${cur_dir}" ]]; then
-        echo -e "\n${WARN}No write permissions in ${cur_dir}.\nExiting${RST}"; exit 1
-    fi
-  fi
+  
+  make_dir "$cur_dir"  
   cd "$cur_dir"
   
   echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
@@ -419,7 +407,6 @@ build_lame() {
   generic_download_and_install http://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download lame-3.99.5
 }
 
-
 build_ffmpeg() {
   if [[ "$1" = "shared" ]]; then 
     local ffshared="shared"
@@ -471,13 +458,15 @@ build_ffmpeg() {
   cd ${ffbasedir}
   cp -r ${cur_dir2}/doc ${ffpath}/ #cp docs to install dir
   if [[ ! "${ffbz2target}" = "" ]]; then
-    tar -cjf "${ffbz2target}"/${ffdir}.tar.bz2 ${ffdir} # bzip 
-    rm -rf ${ffdir}/* && rmdir ${ffdir}
+    tar -cjf "${ffbz2target}"/${ffdir}.tar.bz2 ${ffdir} && rm -rf ${ffdir}/* && rmdir ${ffdir}
   fi  
   cd ${cur_dir2}
   echo -e "${PASS}\n Done! You will find the bz2 packed binaries in ${ffbasedir} ${RST}\n"
   cd ..
 }
+
+ffbasedir="${cur_dir}"
+make_dir "${ffbz2target}"
 
 intro # remember to always run the intro, since it adjust pwd
 install_cross_compiler # always run this, too, since it adjust the PATH
