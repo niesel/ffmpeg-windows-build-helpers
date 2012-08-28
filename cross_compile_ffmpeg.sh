@@ -157,9 +157,8 @@ do_git_checkout() {
     echo -e "${PASS}done downloading $to_dir ${RST}"
   else
     cd $to_dir
-    echo -e "\n${INFO}Updating to latest $to_dir version..."
+    echo -e "\n${INFO}Updating to latest $to_dir version...${RST}"
     git pull
-    echo -e "${RST}\c"
     cd ..
   fi
 }
@@ -287,7 +286,10 @@ generic_download_and_install() {
 build_libgsm() {
   download_and_unpack_file http://www.quut.com/gsm/gsm-1.0.13.tar.gz gsm-1.0-pl13
   cd gsm-1.0-pl13
-  make CC=${cross_prefix}gcc AR=${cross_prefix}ar RANLIB=${cross_prefix}ranlib INSTALL_ROOT=${mingw_w64_x86_64_prefix}i # fails, but we expect that LODO fix [?]
+  #not needed, but who wants toast gets toast ;-)
+  sed -i -e '/HAS_FCHMOD/,+14d' src/toast.c
+  sed -i -e '/HAS_FCHOWN/,+6d' src/toast.c
+  make CC=${cross_prefix}gcc AR=${cross_prefix}ar RANLIB=${cross_prefix}ranlib INSTALL_ROOT=${mingw_w64_x86_64_prefix}
   cp lib/libgsm.a $mingw_w64_x86_64_prefix/lib || exit 1
   mkdir -p $mingw_w64_x86_64_prefix/include/gsm
   cp inc/gsm.h $mingw_w64_x86_64_prefix/include/gsm || exit 1
@@ -538,4 +540,4 @@ if [ -d "mingw-w64-x86_64" ]; then # they installed a 64-bit compiler
 fi
 
 cd ..
-echo -e "${WARN}\n All complete. Ending ffmpeg cross compiler script.\n${PASS}Bye.${RST}\n "
+echo -e "${WARN}\n All complete. Ending ffmpeg cross compiler script.\n${PASS} Bye.${RST}\n "
