@@ -418,6 +418,14 @@ build_sdl() {
   rmdir temp
 }
 
+build_celt() {
+    do_git_checkout git://git.xiph.org/celt.git celt
+    cd celt
+    do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingw_w64_x86_64_prefix"
+    do_make_install
+    cd ..
+}
+
 build_faac() {
   generic_download_and_install http://downloads.sourceforge.net/faac/faac-1.28.tar.gz faac-1.28 "--with-mp4v2=no"
 }
@@ -527,6 +535,7 @@ build_all() {
     # not included for now, see comment above, poor quality
     #build_faac 
   fi
+  build_celt
   build_openssl
   # needs openssl
   build_librtmp 
