@@ -24,7 +24,7 @@
 #Build directory
 cur_dir="$(pwd)/build"
 #Target directory for bz2-files (if unset, no .tar.bz will be made)
-ffbz2target="$(pwd))/bz2"
+ffbz2target="$(pwd)/bz2"
 #Build static and shared versions
 ffbuildstatic=false
 ffbuildshared=false
