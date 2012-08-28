@@ -107,7 +107,7 @@ intro() {
 
 install_cross_compiler() {
   if [[ -f "mingw-w64-i686/compiler.done" || -f "mingw-w64-x86_64/compiler.done" ]]; then
-   echo -e "\n${PASS}MinGW-w64 compiler of some type already installed, not re-installing it...${RST}\n"
+   echo -e "\n${PASS}MinGW-w64 compiler of some type already installed, not re-installing it...${RST}"
    return
   fi
   echo -e "\nFirst we will download and compile a gcc cross-compiler (MinGW-w64)."
@@ -124,7 +124,7 @@ install_cross_compiler() {
   if [ -d mingw-w64-i686 ]; then
     touch mingw-w64-i686/compiler.done
   fi
-  echo -e "${PASS}Ok, done building MinGW-w64 cross-compiler...${RST}\n"
+  echo -e "${PASS}Ok, done building MinGW-w64 cross-compiler...${RST}"
 }
 
 setup_env() {
@@ -135,12 +135,12 @@ do_svn_checkout() {
   repo_url="$1"
   to_dir="$2"
   if [ ! -d $to_dir ]; then
-    echo -e "${INFO}svn checking out to $to_dir ${RST}"
+    echo -e "\n${INFO}svn checking out to $to_dir ${RST}"
     svn checkout $repo_url $to_dir.tmp || exit 1
     mv $to_dir.tmp $to_dir
   else
     cd $to_dir
-    echo -e "${INFO}Updating $to_dir ${RST}"
+    echo -e "\n${INFO}Updating $to_dir ${RST}"
     svn up
     cd ..
   fi
@@ -150,15 +150,16 @@ do_git_checkout() {
   repo_url="$1"
   to_dir="$2"
   if [ ! -d $to_dir ]; then
-    echo -e "${INFO}Downloading (via git clone) $to_dir ${RST}"
+    echo -e "\n${INFO}Downloading (via git clone) $to_dir ${RST}"
     # prevent partial checkouts by renaming it only after success
     git clone $repo_url $to_dir.tmp || exit 1
     mv $to_dir.tmp $to_dir
-    echo -e "${INFO}done downloading $to_dir ${RST}"
+    echo -e "${PASS}done downloading $to_dir ${RST}"
   else
     cd $to_dir
-    echo -e "${INFO}Updating to latest $to_dir version... ${RST}"
+    echo -e "\n${INFO}Updating to latest $to_dir version..."
     git pull
+    echo -e "${RST}\c"
     cd ..
   fi
 }
@@ -175,10 +176,10 @@ do_configure() {
   touch_name=$(echo already_configured_$touch_name | sed "s/ //g") # add prefix so we can delete it easily, remove spaces
   if [ $english_name = "ffmpeg_git" -o ! -f "$touch_name" ]; then # always reconfigure ffmpeg-git
     if [ $english_name = "ffmpeg_git" ]; then
-        make -s distclean  # make distclean before configure (only ffmpeg_git)
+        make -s distclean > /dev/null 2>&1 # make distclean before configure (only ffmpeg_git)
     fi
-    echo -e "\n${INFO}configuring $english_name as $ PATH=$PATH $configure_name $configure_options${RST}\n"
-    make -s clean # just in case
+    echo -e "${INFO}configuring $english_name as $ PATH=$PATH $configure_name $configure_options${RST}"
+    make -s clean > /dev/null 2>&1 # just in case
     #make uninstall # does weird things when used with ffmpeg
     if [ -f bootstrap.sh ]; then
       ./bootstrap.sh
@@ -187,9 +188,9 @@ do_configure() {
     rm -f already_ran_make
     "$configure_name" $configure_options || exit 1
     touch -- "$touch_name"
-    make -s clean # just in case
+    make -s clean > /dev/null 2>&1 # just in case
   else
-    echo -e "\n${INFO}already configured $cur_dir2 ${RST}\n" 
+    echo -e "\n${PASS}already configured $cur_dir2 ${RST}" 
   fi
 }
 
@@ -197,12 +198,12 @@ do_make_install() {
   extra_make_options="$1"
   local cur_dir2=$(pwd)
   if [ ! -f already_ran_make ]; then
-    echo -e "\n${INFO}making $cur_dir2 as $ PATH=$PATH make $extra_make_options ${RST}\n"
+    echo -e "\n${INFO}making $cur_dir2 as $ PATH=$PATH make $extra_make_options ${RST}"
     make $extra_make_options || exit 1
     make install $extra_make_options || exit 1
     touch already_ran_make
   else
-    echo -e "\n${INFO}already did make $(basename "$cur_dir2") ${RST}\n"
+    echo -e "${PASS}already did make $(basename "$cur_dir2") ${RST}"
   fi
 }
 
@@ -417,6 +418,7 @@ build_ffmpeg() {
   cd ffmpeg_git
   git checkout master; git reset --hard; git checkout master #reset git to master 
   local ffgit=`git rev-parse --short HEAD`
+  local ffgitrev=`git rev-list HEAD | wc -l`
   local ffdate=`date +%Y%m%d`
   if [ "$bits_target" = "32" ]; then
     local arch=x86
@@ -425,7 +427,7 @@ build_ffmpeg() {
     local arch=x86_64
     local ffarch=win64
   fi
-  local ffdir="ffmpeg-${ffdate}-${ffgit}-${ffarch}-${ffshared}"
+  local ffdir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
   local ffpath="${ffbasedir}/${ffdir}"
   if [[ -d "${ffpath}" ]]; then
     rm -rf ${ffbasedir}/${ffdir}/*
@@ -433,7 +435,9 @@ build_ffmpeg() {
     mkdir -p "${ffpath}"
   fi
 
-  config_options="--prefix=$ffpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32  --cross-prefix=$cross_prefix --pkg-config=pkg-config --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-gnutls --enable-libgsm --enable-libfreetype"
+  config_options="--prefix=$ffpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
+  config_options="$config_options --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32"
+  config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-gnutls --enable-libgsm --enable-libfreetype"
   
   if [[ "$non_free" = "y" ]]; then
     config_options="$config_options --enable-nonfree --enable-openssl --enable-libfdk-aac" # --enable-libfaac -- faac too poor quality and becomes the default -- add it in and uncomment the build_faac line to include it
@@ -506,7 +510,7 @@ build_all() {
 
 original_path="$PATH"
 if [ -d "mingw-w64-i686" ]; then # they installed a 32-bit compiler
-  echo -e "\n${INFO}Building 32-bit ffmpeg...${RST}\n"
+  echo -e "\n${PASS}Building 32-bit ffmpeg...${RST}"
   host_target='i686-w64-mingw32'
   mingw_w64_x86_64_prefix="$cur_dir/mingw-w64-i686/$host_target"
   export PATH="$cur_dir/mingw-w64-i686/bin:$original_path"
@@ -520,7 +524,7 @@ if [ -d "mingw-w64-i686" ]; then # they installed a 32-bit compiler
 fi
 
 if [ -d "mingw-w64-x86_64" ]; then # they installed a 64-bit compiler
-  echo -e "\n${INFO}Building 64-bit ffmpeg...${RST}\n"
+  echo -e "\n${PASS}Building 64-bit ffmpeg...${RST}"
   host_target='x86_64-w64-mingw32'
   mingw_w64_x86_64_prefix="$cur_dir/mingw-w64-x86_64/$host_target"
   export PATH="$cur_dir/mingw-w64-x86_64/bin:$original_path"
@@ -534,4 +538,4 @@ if [ -d "mingw-w64-x86_64" ]; then # they installed a 64-bit compiler
 fi
 
 cd ..
-echo -e "${WARN}\n All complete. Ending ffmpeg cross compiler script.\n Bye.${RST}\n "
+echo -e "${WARN}\n All complete. Ending ffmpeg cross compiler script.\n${PASS}Bye.${RST}\n "
