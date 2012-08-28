@@ -28,14 +28,16 @@ ffbz2target="$(pwd)/bz2"
 #Build static and shared versions
 ffbuildstatic=false
 ffbuildshared=false
-################################################################################
-# Text color variables
+
+# Text color variables #########################################################
+
 WARN='\e[1;31m'   # red - Bold
 PASS='\e[1;32m'   # green
 INFO='\e[1;33m'   # yellow
 QUES='\e[1;36m'   # cyan
 RST='\e[0m'       # Text reset
-################################################################################
+
+# Functions ####################################################################
 
 yes_no_sel () {
 unset user_input
@@ -88,7 +90,7 @@ intro() {
   echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
   echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
   yes_no_sel "${QUES}Include non-free?${RST} [y/n]?"
-  non_free="$user_input" # save it away
+  non_free="$user_input"
   
   yes_no_sel "\n${QUES}Would you like to make a static build?${RST} [y/n]?"
   if [[ "$user_input" = "y" ]]; then 
@@ -128,7 +130,8 @@ install_cross_compiler() {
 }
 
 setup_env() {
-  export PKG_CONFIG_LIBDIR= # disable pkg-config from reverting back to and finding system installed packages [yikes]
+    # disable pkg-config from reverting back to and finding system installed packages [yikes]
+    export PKG_CONFIG_LIBDIR= 
 }
 
 do_svn_checkout() {
@@ -171,23 +174,26 @@ do_configure() {
   fi
   local cur_dir2=$(pwd)
   local english_name=$(basename $cur_dir2)
-  local touch_name=$(echo -- $configure_options | /usr/bin/env md5sum) # sanitize, disallow too long of length
-  touch_name=$(echo already_configured_$touch_name | sed "s/ //g") # add prefix so we can delete it easily, remove spaces
-  if [ $english_name = "ffmpeg_git" -o ! -f "$touch_name" ]; then # always reconfigure ffmpeg-git
+  # sanitize, disallow too long of length
+  local touch_name=$(echo -- $configure_options | /usr/bin/env md5sum) 
+  # add prefix so we can delete it easily, remove spaces
+  touch_name=$(echo already_configured_$touch_name | sed "s/ //g") 
+  if [ $english_name = "ffmpeg_git" -o ! -f "$touch_name" ]; then 
+    # always reconfigure ffmpeg-git
     if [ $english_name = "ffmpeg_git" ]; then
-        make -s distclean > /dev/null 2>&1 # make distclean before configure (only ffmpeg_git)
+        # make distclean before configure (only ffmpeg_git)
+        make -s distclean > /dev/null 2>&1 
     fi
     echo -e "${INFO}configuring $english_name as $ PATH=$PATH $configure_name $configure_options${RST}"
-    make -s clean > /dev/null 2>&1 # just in case
-    #make uninstall # does weird things when used with ffmpeg
+    make -s clean /dev/null 2>&1
     if [ -f bootstrap.sh ]; then
       ./bootstrap.sh
     fi
-    rm -f already_configured* # any old configuration options, since they'll be out of date after the next configure
+    # any old configuration options, since they'll be out of date after the next configure
+    rm -f already_configured*
     rm -f already_ran_make
     "$configure_name" $configure_options || exit 1
     touch -- "$touch_name"
-    make -s clean > /dev/null 2>&1 # just in case
   else
     echo -e "\n${PASS}already configured $cur_dir2 ${RST}" 
   fi
@@ -210,15 +216,14 @@ build_x264() {
   do_git_checkout "http://repo.or.cz/r/x264.git" "x264"
   cd x264
   do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingw_w64_x86_64_prefix --enable-win32thread"
-  # TODO more march=native here?
   # rm -f already_ran_make # just in case the git checkout did something, re-make
   do_make_install
   cd ..
 }
 
 build_librtmp() {
-  #  download_and_unpack_file http://rtmpdump.mplayerhq.hu/download/rtmpdump-2.3.tgz rtmpdump-2.3
-  #  cd rtmpdump-2.3/librtmp
+  # download_and_unpack_file http://rtmpdump.mplayerhq.hu/download/rtmpdump-2.3.tgz rtmpdump-2.3
+  # cd rtmpdump-2.3/librtmp
 
   do_git_checkout "http://repo.or.cz/r/rtmpdump.git" rtmpdump_git
   cd rtmpdump_git/librtmp
@@ -236,7 +241,8 @@ build_libopenjpeg() {
   download_and_unpack_file http://openjpeg.googlecode.com/files/openjpeg_v1_4_sources_r697.tgz openjpeg_v1_4_sources_r697
   cd openjpeg_v1_4_sources_r697
   generic_configure
-  sed -i "s/\/usr\/lib/\$\(libdir\)/" Makefile # install pkg_config to the right dir...
+  # install pkg_config to the right dir...
+  sed -i "s/\/usr\/lib/\$\(libdir\)/" Makefile 
   do_make_install
   cd .. 
 }
@@ -250,7 +256,7 @@ build_libvpx() {
   else
     do_configure "--target=generic-gnu --prefix=$mingw_w64_x86_64_prefix --enable-static --disable-shared"
   fi
-  do_make_install "extralibs='-lpthread'" # weird
+  do_make_install "extralibs='-lpthread'"
   cd ..
 }
 
@@ -341,10 +347,13 @@ build_libxvid() {
   download_and_unpack_file http://downloads.xvid.org/downloads/xvidcore-1.3.2.tar.gz xvidcore
   cd xvidcore/build/generic
   if [ "$bits_target" = "64" ]; then
-    local config_opts="--build=x86_64-unknown-linux-gnu --disable-assembly" # kludgey work arounds for 64 bit
+    # kludgey work arounds for 64 bit
+    local config_opts="--build=x86_64-unknown-linux-gnu --disable-assembly" 
   fi
-  do_configure "--host=$host_target --prefix=$mingw_w64_x86_64_prefix $config_opts" # no static option...
-  sed -i "s/-mno-cygwin//" platform.inc # remove old compiler flag that now apparently breaks us
+  # no static option...
+  do_configure "--host=$host_target --prefix=$mingw_w64_x86_64_prefix $config_opts" 
+  # remove old compiler flag that now apparently breaks us
+  sed -i "s/-mno-cygwin//" platform.inc 
   do_make_install
   cd ../../..
   # force a static build after the fact
@@ -388,16 +397,20 @@ build_vo_aacenc() {
 
 build_sdl() {
   # apparently ffmpeg expects prefix-sdl-config not sdl-config that they give us, so rename...
-  export CFLAGS="-DDECLSPEC=" #-DDECLSPEC is needed for shared build
+  #-DDECLSPEC is needed for shared build
+  export CFLAGS="-DDECLSPEC=" 
   generic_download_and_install http://www.libsdl.org/release/SDL-1.2.15.tar.gz SDL-1.2.15
   unset CFLAGS
   mkdir temp
-  cd temp # so paths will work out right
+  # cd - so paths will work out right
+  cd temp 
   local prefix=$(basename $cross_prefix)
   local bin_dir=$(dirname $cross_prefix)
-  sed -i "s/-mwindows//" "$mingw_w64_x86_64_prefix/bin/sdl-config" # allow ffmpeg to output anything
+  # allow ffmpeg to output anything
+  sed -i "s/-mwindows//" "$mingw_w64_x86_64_prefix/bin/sdl-config" 
   sed -i "s/-mwindows//" "$PKG_CONFIG_PATH/sdl.pc"
-  cp "$mingw_w64_x86_64_prefix/bin/sdl-config" "$bin_dir/${prefix}sdl-config" # this is the only one in the PATH so use it for now
+  # this is the only one in the PATH so use it for now
+  cp "$mingw_w64_x86_64_prefix/bin/sdl-config" "$bin_dir/${prefix}sdl-config" 
   cd ..
   rmdir temp
 }
@@ -416,12 +429,16 @@ build_ffmpeg() {
   else
     local ffshared="static"
   fi
+  
   do_git_checkout https://github.com/FFmpeg/FFmpeg.git ffmpeg_git
   cd ffmpeg_git
-  git checkout master; git reset --hard; git checkout master #reset git to master 
+  # Reset git to master. ATM I don't know a better way to do it.
+  git checkout master; git reset --hard; git checkout master  
+  
   local ffgit=`git rev-parse --short HEAD`
   local ffgitrev=`git rev-list HEAD | wc -l`
   local ffdate=`date +%Y%m%d`
+  
   if [ "$bits_target" = "32" ]; then
     local arch=x86
     local ffarch=win32
@@ -429,6 +446,7 @@ build_ffmpeg() {
     local arch=x86_64
     local ffarch=win64
   fi
+  
   local ffdir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
   local ffpath="${ffbasedir}/${ffdir}"
   if [[ -d "${ffpath}" ]]; then
@@ -440,55 +458,60 @@ build_ffmpeg() {
   config_options="--prefix=$ffpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
   config_options="$config_options --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32"
   config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-gnutls --enable-libgsm --enable-libfreetype"
+  config_options="$config_options --enable-runtime-cpudetect"
   
   if [[ "$non_free" = "y" ]]; then
-    config_options="$config_options --enable-nonfree --enable-openssl --enable-libfdk-aac" # --enable-libfaac -- faac too poor quality and becomes the default -- add it in and uncomment the build_faac line to include it
+    config_options="$config_options --enable-nonfree --enable-openssl --enable-libfdk-aac" 
+    # faac too poor quality and becomes the default -- add it in and uncomment the build_faac line to include it
+    #config_options="$config_options --enable-libfaac"
   fi
   
-  if [[ "$native_build" = "y" ]]; then
-    config_options="$config_options --disable-runtime-cpudetect"
-    # TODO --cpu=host
-  else
-    config_options="$config_options --enable-runtime-cpudetect"
-  fi
   if [[ "$ffshared" = "shared" ]] ; then
     config_options="$config_options --disable-static --enable-shared"
   fi
+  
   do_configure "$config_options"
-  rm -f *.exe # just in case some library dependency was updated, force it to re-link
+  # just in case some library dependency was updated, force it to re-link
+  rm -f *.exe 
+  
   echo -e "\n${INFO}ffmpeg: doing PATH=$PATH make${RST}\n"
   local ffcpucount=`grep -c ^processor /proc/cpuinfo`
   make -j${ffcpucount} || exit 1
   make install
+  
   local cur_dir2=$(pwd)
+  
   cd ${ffbasedir}
-  cp -r ${cur_dir2}/doc ${ffpath}/ #cp docs to install dir
+  #cp docs to install dir
+  cp -r ${cur_dir2}/doc ${ffpath}/ 
   if [[ ! "${ffbz2target}" = "" ]]; then
+    echo -e "\n${INFO}Compressing to ${ffdir}.tar.bz2 ${RST}\n"
     tar -cjf "${ffbz2target}"/${ffdir}.tar.bz2 ${ffdir} && rm -rf ${ffdir}/* && rmdir ${ffdir}
-  fi  
+  fi 
+   
   cd ${cur_dir2}
   echo -e "${PASS}\n Done! You will find the bz2 packed binaries in ${ffbasedir} ${RST}\n"
   cd ..
 }
 
-ffbasedir="${cur_dir}"
-make_dir "${ffbz2target}"
-
-intro # remember to always run the intro, since it adjust pwd
-install_cross_compiler # always run this, too, since it adjust the PATH
-setup_env
-
 build_all() {
-  build_zlib # rtmp depends on it [as well as ffmpeg's optional but handy --enable-zlib]
+  # rtmp depends on it [as well as ffmpeg's optional but handy --enable-zlib]
+  build_zlib 
   build_gmp
-  build_libnettle # needs gmp
-  build_gnutls #  needs libnettle
+  # needs gmp
+  build_libnettle 
+  # needs libnettle
+  build_gnutls 
   build_libgsm
-  build_sdl # needed for ffplay to be created
+  # needed for ffplay to be created
+  build_sdl 
   build_libogg
-  build_libspeex # needs libogg
-  build_libvorbis # needs libogg
-  build_libtheora # needs libvorbis, libogg
+  # needs libogg
+  build_libspeex 
+  # needs libogg
+  build_libvorbis
+  # needs libvorbis, libogg
+  build_libtheora 
   build_libxvid
   build_x264
   build_lame
@@ -498,10 +521,12 @@ build_all() {
   build_libopenjpeg
   if [[ "$non_free" = "y" ]]; then
     build_fdk_aac
-    # build_faac # not included for now, see comment above, poor quality
+    # not included for now, see comment above, poor quality
+    #build_faac 
   fi
   build_openssl
-  build_librtmp # needs openssl today [TODO use gnutls]
+  # needs openssl
+  build_librtmp 
   if $ffbuildstatic; then
     build_ffmpeg
   fi
@@ -509,9 +534,25 @@ build_all() {
     build_ffmpeg shared
   fi
 }
+################################################################################
+
+# Main #########################################################################
+
+ffbasedir="${cur_dir}"
+make_dir "${ffbz2target}"
+
+# Remember to always run the intro, since it adjust pwd
+intro 
+
+# Always run this, too, since it adjust the PATH
+install_cross_compiler 
+
+setup_env
 
 original_path="$PATH"
-if [ -d "mingw-w64-i686" ]; then # they installed a 32-bit compiler
+
+# 32bit
+if [ -d "mingw-w64-i686" ]; then 
   echo -e "\n${PASS}Building 32-bit ffmpeg...${RST}"
   host_target='i686-w64-mingw32'
   mingw_w64_x86_64_prefix="$cur_dir/mingw-w64-i686/$host_target"
@@ -525,7 +566,8 @@ if [ -d "mingw-w64-i686" ]; then # they installed a 32-bit compiler
   cd ..
 fi
 
-if [ -d "mingw-w64-x86_64" ]; then # they installed a 64-bit compiler
+# 64bit 
+if [ -d "mingw-w64-x86_64" ]; then 
   echo -e "\n${PASS}Building 64-bit ffmpeg...${RST}"
   host_target='x86_64-w64-mingw32'
   mingw_w64_x86_64_prefix="$cur_dir/mingw-w64-x86_64/$host_target"
@@ -540,4 +582,4 @@ if [ -d "mingw-w64-x86_64" ]; then # they installed a 64-bit compiler
 fi
 
 cd ..
-echo -e "${WARN}\n All complete. Ending ffmpeg cross compiler script.\n${PASS} Bye.${RST}\n "
+echo -e "${WARN}\nAll complete. Ending ffmpeg cross compiler script.\n${PASS}Bye. ;-) ${RST}\n "
