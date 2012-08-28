@@ -189,6 +189,9 @@ do_configure() {
     if [ -f bootstrap.sh ]; then
       ./bootstrap.sh
     fi
+    if [ -f autogen.sh ]; then
+      ./autogen.sh
+    fi
     # any old configuration options, since they'll be out of date after the next configure
     rm -f already_configured*
     rm -f already_ran_make
