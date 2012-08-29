@@ -535,7 +535,7 @@ build_all() {
     # not included for now, see comment above, poor quality
     #build_faac 
   fi
-  build_celt
+  #build_celt
   build_openssl
   # needs openssl
   build_librtmp 
