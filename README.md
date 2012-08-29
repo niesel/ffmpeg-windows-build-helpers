@@ -23,27 +23,26 @@ For the shared libaries "lib.exe" under wine is needed.
 Install it according to the explanation in the arrozcru wiki
 http://ffmpeg.arrozcru.org/wiki/index.php?title=Cross-compiling :
 
-* Install MSVC++ under wine (select only '''Developer Tools->Visual C++ Compilers'''):
+* Install MSVC++ under wine (select only '''Developer Tools->Visual C++ Compilers'''):                                                                    + 
+```bash
+wget http://www.kegel.com/wine/winetricks
+chmod +x winetricks
+./winetricks psdkwin7
 ```
-$ wget http://www.kegel.com/wine/winetricks
 
-$ chmod +x winetricks
-
-$ ./winetricks psdkwin7
-
-```
 * Copy mspdb80.dll to the same directory as lib.exe:
+```bash
+cp $HOME/.wine/drive_c/Program\ Files/Microsoft\ Visual\ Studio\ 9.0/Common7/IDE/mspdb80.dll \
+       $HOME/.wine/drive_c/Program\ Files/Microsoft\ Visual\ Studio\ 9.0/VC/bin/
 ```
-$ cp $HOME/.wine/drive_c/Program\ Files/Microsoft\ Visual\ Studio\ 9.0/Common7/IDE/mspdb80.dll \
-     $HOME/.wine/drive_c/Program\ Files/Microsoft\ Visual\ Studio\ 9.0/VC/bin/
-```
+
 * Create a lib.exe helper in /usr/local/bin:
-```
-$ sudo tee /usr/local/bin/lib.exe << EOF
+```bash
+sudo tee /usr/local/bin/lib.exe << EOF
 #!/bin/sh
 $HOME/.wine/drive_c/Program\ Files/Microsoft\ Visual\ Studio\ 9.0/VC/bin/lib.exe \$*
 EOF
-$ sudo chmod +x /usr/local/bin/lib.exe
+sudo chmod +x /usr/local/bin/lib.exe
 ```
 
 Now when you build FFmpeg with --enable-shared, you should have Visual Studio import libraries.
