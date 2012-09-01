@@ -161,6 +161,8 @@ do_git_checkout() {
   else
     cd $to_dir
     echo -e "\n${INFO}Updating to latest $to_dir version...${RST}"
+    git checkout master
+    git reset --hard
     git pull
     cd ..
   fi
@@ -188,8 +190,7 @@ do_configure() {
     make -s clean /dev/null 2>&1
     if [ -f bootstrap.sh ]; then
       ./bootstrap.sh
-    fi
-    if [ -f autogen.sh ]; then
+    elif [ -f autogen.sh ]; then
       ./autogen.sh
     fi
     # any old configuration options, since they'll be out of date after the next configure
@@ -444,9 +445,8 @@ build_ffmpeg() {
   do_git_checkout https://github.com/FFmpeg/FFmpeg.git ffmpeg_git
   cd ffmpeg_git
     
-
-  local ffgit=`git rev-parse --short HEAD`
-  local ffgitrev=`git rev-list HEAD | wc -l`
+  local ffgit=`git rev-parse --short HEAD` && echo -e "\n${PASS}Git Hash (short): ${ffgit}${RST}"
+  local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS}Git Rev.: ${ffgitrev}\n" 
   local ffdate=`date +%Y%m%d`
   
   if [ "$bits_target" = "32" ]; then
@@ -472,8 +472,8 @@ build_ffmpeg() {
   
   if [[ "$non_free" = "y" ]]; then
     config_options="$config_options --enable-nonfree --enable-openssl --enable-libfdk-aac" 
-    # faac too poor quality and becomes the default -- add it in and uncomment the build_faac line to include it
-    #config_options="$config_options --enable-libfaac"
+    # faac too poor quality and becomes the default -- add it in and comment the build_faac line to exclude it
+    config_options="$config_options --enable-libfaac"
   fi
   
   if [[ "$ffshared" = "shared" ]] ; then
