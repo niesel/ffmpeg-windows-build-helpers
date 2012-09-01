@@ -418,13 +418,13 @@ build_sdl() {
   rmdir temp
 }
 
-build_celt() {
-    do_git_checkout git://git.xiph.org/celt.git celt
-    cd celt
-    do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingw_w64_x86_64_prefix"
-    do_make_install
-    cd ..
-}
+#build_opus() {
+#    do_git_checkout git://git.xiph.org/celt.git celt
+#    cd celt
+#    do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingw_w64_x86_64_prefix"
+#    do_make_install
+#    cd ..
+#}
 
 build_faac() {
   generic_download_and_install http://downloads.sourceforge.net/faac/faac-1.28.tar.gz faac-1.28 "--with-mp4v2=no"
@@ -443,9 +443,8 @@ build_ffmpeg() {
   
   do_git_checkout https://github.com/FFmpeg/FFmpeg.git ffmpeg_git
   cd ffmpeg_git
-  # Reset git to master. ATM I don't know a better way to do it.
-  git checkout master; git reset --hard; git checkout master  
-  
+    
+
   local ffgit=`git rev-parse --short HEAD`
   local ffgitrev=`git rev-list HEAD | wc -l`
   local ffdate=`date +%Y%m%d`
@@ -495,7 +494,7 @@ build_ffmpeg() {
   cd ${ffbasedir}
   #cp docs to install dir
   cp -r ${cur_dir2}/doc ${ffpath}/ 
-  if [[ ! "${ffbz2target}" = "" ]]; then
+  if [[ ! "${ffbz2target}" = "" && ! "${ffdir}" = "" ]]; then
     echo -e "\n${INFO}Compressing to ${ffdir}.tar.bz2 ${RST}\n"
     tar -cjf "${ffbz2target}"/${ffdir}.tar.bz2 ${ffdir} && rm -rf ${ffdir}/* && rmdir ${ffdir}
   fi 
@@ -532,10 +531,8 @@ build_all() {
   build_libopenjpeg
   if [[ "$non_free" = "y" ]]; then
     build_fdk_aac
-    # not included for now, see comment above, poor quality
-    #build_faac 
+    build_faac 
   fi
-  #build_celt
   build_openssl
   # needs openssl
   build_librtmp 
