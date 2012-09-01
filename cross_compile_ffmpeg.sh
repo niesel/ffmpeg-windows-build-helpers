@@ -97,11 +97,16 @@ intro() {
     ffbuildstatic=true
     echo "${ffbuildstatic}"
   fi  
-  yes_no_sel "\n${QUES}Would you like to make a shared build?${RST} [y/n]?"
-  if [[ "$user_input" = "y" ]]; then 
-    ffbuildshared=true
-    echo "${ffbuildshared}"
-  fi 
+  type -p lib.exe >/dev/null 2>&1 && libexeok=true || libexeok=false
+  if $libexeok; then 
+    yes_no_sel "\n${QUES}Would you like to make a shared build?${RST} [y/n]?"
+    if [[ "$user_input" = "y" ]]; then 
+        ffbuildshared=true
+        echo -e "${ffbuildshared}"
+    fi
+  else
+    echo -e "\n${WARN}Wine with installed lib.exe required for shared ffmpeg build, but it could not be found.\nCan not build shared libs!${RST}"
+  fi    
   if ! $ffbuildstatic && ! $ffbuildshared; then
     echo -e "\n${WARN}Neither static nor shared build selected!\nExiting${RST}"; exit 1
   fi
@@ -231,7 +236,8 @@ build_librtmp() {
 
   do_git_checkout "http://repo.or.cz/r/rtmpdump.git" rtmpdump_git
   cd rtmpdump_git/librtmp
-  make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1 # TODO use gnutls ?
+  # TODO use gnuts?
+  make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
   cd ../..
 }
 
