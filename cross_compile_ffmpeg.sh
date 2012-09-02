@@ -180,8 +180,8 @@ do_configure() {
   if [[ "$configure_name" = "" ]]; then
     configure_name="./configure"
   fi
-  local cur_dir2=$(pwd)
-  local english_name=$(basename $cur_dir2)
+  local localdir=$(pwd)
+  local english_name=$(basename $localdir)
   # sanitize, disallow too long of length
   local touch_name=$(echo -- $configure_options | /usr/bin/env md5sum) 
   # add prefix so we can delete it easily, remove spaces
@@ -205,22 +205,51 @@ do_configure() {
     "$configure_name" $configure_options || exit 1
     touch -- "$touch_name"
   else
-    echo -e "\n${PASS}already configured $cur_dir2 ${RST}" 
+    echo -e "\n${PASS}already configured $localdir ${RST}" 
   fi
 }
 
+generic_configure() {
+  local extra_configure_options="$1"
+  do_configure "--host=$host_target --prefix=$mingw_w64_x86_64_prefix --disable-shared --enable-static $extra_configure_options"
+}
+
 do_make_install() {
-  extra_make_options="$1"
-  local cur_dir2=$(pwd)
+  extra_make_options="$*"
+  local localdir=$(pwd)
   if [ ! -f already_ran_make ]; then
-    echo -e "\n${INFO}making $cur_dir2 as $ PATH=$PATH make $extra_make_options ${RST}"
+    echo -e "\n${INFO}making ${localdir} as $ PATH=$PATH make ${extra_make_options} ${RST}"
     make -s clean /dev/null 2>&1
     make $extra_make_options || exit 1
     make install $extra_make_options || exit 1
     touch already_ran_make
   else
-    echo -e "${PASS}already did make $(basename "$cur_dir2") ${RST}"
+    echo -e "${PASS}already did make $(basename "$localdir") ${RST}"
   fi
+}
+
+download_and_unpack_file() {
+  url="$1"
+  output_name=$(basename $url)
+  output_dir="$2"
+  if [ ! -f "$output_dir/unpacked.successfully" ]; then
+    wget "$url" -O "$output_name" || exit 1
+    tar -xf "$output_name" || exit 1
+    touch "$output_dir/unpacked.successfully"
+    rm "$output_name"
+  fi
+}
+
+# needs 2 parameters currently
+generic_download_and_install() {
+  local url="$1"
+  local english_name="$2" 
+  local extra_configure_options="$3"
+  download_and_unpack_file $url $english_name
+  cd ${archdir}/$english_name || exit "needs 2 parameters"
+  generic_configure $extra_configure_options
+  do_make_install
+  cd ${archdir}
 }
 
 build_x264() {
@@ -269,35 +298,6 @@ build_libvpx() {
     do_configure "--target=generic-gnu --prefix=$mingw_w64_x86_64_prefix --enable-static --disable-shared"
   fi
   do_make_install "extralibs='-lpthread'"
-  cd ${archdir}
-}
-
-download_and_unpack_file() {
-  url="$1"
-  output_name=$(basename $url)
-  output_dir="$2"
-  if [ ! -f "$output_dir/unpacked.successfully" ]; then
-    wget "$url" -O "$output_name" || exit 1
-    tar -xf "$output_name" || exit 1
-    touch "$output_dir/unpacked.successfully"
-    rm "$output_name"
-  fi
-}
-
-generic_configure() {
-  local extra_configure_options="$1"
-  do_configure "--host=$host_target --prefix=$mingw_w64_x86_64_prefix --disable-shared --enable-static $extra_configure_options"
-}
-
-# needs 2 parameters currently
-generic_download_and_install() {
-  local url="$1"
-  local english_name="$2" 
-  local extra_configure_options="$3"
-  download_and_unpack_file $url $english_name
-  cd ${archdir}/$english_name || exit "needs 2 parameters"
-  generic_configure $extra_configure_options
-  do_make_install
   cd ${archdir}
 }
 
@@ -397,31 +397,47 @@ build_openssl() {
 }
 
 build_libnut() {
-    if [[ -d "${archdir}/libnut" ]]; then
-        cd ${archdir}/libnut
-        nutrev_old=`git rev-parse --short HEAD`
+    local localdir="libnut"
+    if [[ -d "${archdir}/${localdir}" ]]; then
+        cd ${archdir}/${localdir}
+        local githash_old=`git rev-parse --short HEAD`
         cd ${archdir}
     else
-        nutrev_old="0"
+        local githash_old="0"
     fi
-    echo -e "${INFO} \nnutrev_old: $nutrev_old\n${RST}"
-    do_git_checkout git://git.ffmpeg.org/nut libnut
-    cd ${archdir}/libnut
-    nutrev=`git rev-parse --short HEAD`
-    echo -e "${INFO} \nnutrev: $nutrev\n${RST}"
-    if [[ "${nutrev_old}" == "${nutrev}" ]]; then
-        echo -e "\n${PASS}libnut does not need an update.${RST}"
+    echo -e "${INFO} \ngithash_old: $githash_old\n${RST}"
+    do_git_checkout git://git.ffmpeg.org/nut ${localdir}
+    cd ${archdir}/${localdir}
+    local githash=`git rev-parse --short HEAD`
+    echo -e "${INFO} \ngithash: $githash\n${RST}"
+    if [[ "${githash_old}" == "${githash}" ]]; then
+        echo -e "\n${PASS}${localdir} does not need an update.${RST}"
     else
-        cd ${archdir}/libnut/src/trunk
+        cd ${archdir}/${localdir}/src/trunk
         make clean 
-        make CC="${cross_prefix}gcc" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib" && echo -e "${PASS}libnut buildt.${RST}" || echo -e "${WARN}Making libnut failed!${RST}"
+        make CC="${cross_prefix}gcc" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib" && echo -e "${PASS}libnut built.${RST}" || echo -e "${WARN}Making libnut failed!${RST}"
         make install prefix="${mingw_w64_x86_64_prefix}" && echo -e "${PASS}libnut installed.${RST}" || echo -e "${WARN}libnut install failed!.${RST}"
     fi
     cd ${archdir}
 }
 
 build_fdk_aac() {
-  generic_download_and_install http://sourceforge.net/projects/opencore-amr/files/fdk-aac/fdk-aac-0.1.0.tar.gz/download fdk-aac-0.1.0
+    #generic_download_and_install http://sourceforge.net/projects/opencore-amr/files/fdk-aac/fdk-aac-0.1.0.tar.gz/download fdk-aac-0.1.0
+    
+    # Build git version - TODO: if new git version -> reconfigure
+    local localdir="fdk-aac"
+    do_git_checkout git://github.com/mstorsjo/fdk-aac.git ${localdir}
+    cd ${archdir}/${localdir}
+    if [[ ! -f configure ]]; then
+        libtoolize
+        aclocal
+        autoheader
+        automake --force-missing --add-missing
+        autoconf
+    fi
+    generic_configure
+    do_make_install
+    cd ${archdir}
 }
 
 build_freetype() {
@@ -448,7 +464,7 @@ build_sdl() {
   sed -i "s/-mwindows//" "$PKG_CONFIG_PATH/sdl.pc"
   # this is the only one in the PATH so use it for now
   cp "$mingw_w64_x86_64_prefix/bin/sdl-config" "$bin_dir/${prefix}sdl-config" 
-  cd ..
+  cd ${archdir}
   rmdir temp
 }
 
@@ -457,7 +473,7 @@ build_sdl() {
 #    cd celt
 #    do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingw_w64_x86_64_prefix"
 #    do_make_install
-#    cd ..
+#    cd ${archdir}
 #}
 
 build_faac() {
@@ -506,7 +522,7 @@ build_ffmpeg() {
   
   if [[ "$non_free" = "y" ]]; then
     config_options="$config_options --enable-nonfree --enable-openssl --enable-libfdk-aac" 
-    # faac too poor quality and becomes the default -- add it in and comment the build_faac line to exclude it
+    # faac is less quality than dk.aac and becomes the default -- comment the build_faac line to exclude it
     config_options="$config_options --enable-libfaac"
   fi
   
@@ -523,19 +539,19 @@ build_ffmpeg() {
   make -j${cpucount} || exit 1
   make install
   
-  local cur_dir2=$(pwd)
+  local localdir=$(pwd)
   
   cd ${buildir}
   #cp docs to install dir
-  cp -r ${cur_dir2}/doc ${ffinstallpath}/ 
+  cp -r ${localdir}/doc ${ffinstallpath}/ 
   if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]; then
     echo -e "\n${INFO}Compressing to ${ffinstalldir}.tar.bz2 ${RST}\n"
     tar -cjf "${bz2dir}"/${ffinstalldir}.tar.bz2 ${ffinstalldir} && rm -rf ${ffinstalldir}/* && rmdir ${ffinstalldir}
   fi 
    
-  cd ${cur_dir2}
+  cd ${localdir}
   echo -e "${PASS}\n Done! You will find the bz2 packed binaries in ${bz2dir} ${RST}\n"
-  cd ..
+  cd ${archdir}
 }
 
 build_all() {
