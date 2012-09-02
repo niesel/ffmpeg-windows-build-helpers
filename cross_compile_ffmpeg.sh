@@ -22,9 +22,10 @@
 ################################################################################
 #
 #Build directory
-cur_dir="$(pwd)/build"
+basedir="$(pwd)"
+buildir="${basedir}/build"
 #Target directory for bz2-files (if unset, no .tar.bz will be made)
-ffbz2target="$(pwd)/bz2"
+bz2dir="${basedir}/bz2"
 #Build static and shared versions
 ffbuildstatic=false
 ffbuildshared=false
@@ -63,7 +64,7 @@ make_dir () {
             echo -e "\n${PASS}Successfully created $* ${RST}"
         fi
     else
-        if [[ ! -w "${cur_dir}" ]]; then
+        if [[ ! -w "${buildir}" ]]; then
             echo -e "\n${WARN}No write permissions in $*.\nExiting! ${RST}"; exit 1
         else
             echo -e "\n${PASS} Directory $* already exists and is writeable. ${RST}"
@@ -75,17 +76,17 @@ intro() {
     echo -e "\n######################### Welcome ###########################"
     echo -e "Welcome to the ffmpeg cross-compile builder-helper script."
     echo -e "Downloads and builds will be processed within the folder"
-    echo -e "    $cur_dir"
+    echo -e "    $buildir"
     echo -e "If this is not ok, then exit now, and cd to the directory where"
     echo -e "you would like them installed, then run this script again."
 
-  yes_no_sel "${QUES}Is $cur_dir ok? ${RST}[y/n]?"
+  yes_no_sel "${QUES}Is ${buildir} ok? ${RST}[y/n]?"
   if [[ "${user_input}" = "n" ]]; then
     exit 1
   fi
   
-  make_dir "$cur_dir"  
-  cd "$cur_dir"
+  make_dir "$buildir"  
+  cd "$buildir"
   
   echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
   echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
@@ -147,10 +148,10 @@ do_svn_checkout() {
     svn checkout $repo_url $to_dir.tmp || exit 1
     mv $to_dir.tmp $to_dir
   else
-    cd $to_dir
+    cd ${archdir}/${to_dir}
     echo -e "\n${INFO}Updating $to_dir ${RST}"
     svn up
-    cd ..
+    cd ${archdir}
   fi
 }
 
@@ -164,12 +165,12 @@ do_git_checkout() {
     mv $to_dir.tmp $to_dir
     echo -e "${PASS}done downloading $to_dir ${RST}"
   else
-    cd $to_dir
+    cd ${archdir}/${to_dir}
     echo -e "\n${INFO}Updating to latest $to_dir version...${RST}"
     git checkout master
     git reset --hard
     git pull
-    cd ..
+    cd ${archdir}
   fi
 }
 
@@ -213,6 +214,7 @@ do_make_install() {
   local cur_dir2=$(pwd)
   if [ ! -f already_ran_make ]; then
     echo -e "\n${INFO}making $cur_dir2 as $ PATH=$PATH make $extra_make_options ${RST}"
+    make -s clean /dev/null 2>&1
     make $extra_make_options || exit 1
     make install $extra_make_options || exit 1
     touch already_ran_make
@@ -223,11 +225,11 @@ do_make_install() {
 
 build_x264() {
   do_git_checkout "http://repo.or.cz/r/x264.git" "x264"
-  cd x264
+  cd ${archdir}/x264
   do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingw_w64_x86_64_prefix --enable-win32thread"
   # rm -f already_ran_make # just in case the git checkout did something, re-make
   do_make_install
-  cd ..
+  cd ${archdir}
 }
 
 build_librtmp() {
@@ -235,10 +237,10 @@ build_librtmp() {
   # cd rtmpdump-2.3/librtmp
 
   do_git_checkout "http://repo.or.cz/r/rtmpdump.git" rtmpdump_git
-  cd rtmpdump_git/librtmp
+  cd ${archdir}/rtmpdump_git/librtmp
   # TODO use gnuts?
   make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
-  cd ../..
+  cd ${archdir}
 }
 
 build_libopenjpeg() {
@@ -249,17 +251,17 @@ build_libopenjpeg() {
   #do_make_install
   #cd ..
   download_and_unpack_file http://openjpeg.googlecode.com/files/openjpeg_v1_4_sources_r697.tgz openjpeg_v1_4_sources_r697
-  cd openjpeg_v1_4_sources_r697
+  cd ${archdir}/openjpeg_v1_4_sources_r697
   generic_configure
   # install pkg_config to the right dir...
   sed -i "s/\/usr\/lib/\$\(libdir\)/" Makefile 
   do_make_install
-  cd .. 
+  cd ${archdir} 
 }
 
 build_libvpx() {
   download_and_unpack_file http://webm.googlecode.com/files/libvpx-v1.1.0.tar.bz2 libvpx-v1.1.0
-  cd libvpx-v1.1.0
+  cd ${archdir}/libvpx-v1.1.0
   export CROSS="$cross_prefix"
   if [[ "$bits_target" = "32" ]]; then
     do_configure "--target=generic-gnu --prefix=$mingw_w64_x86_64_prefix --enable-static --disable-shared"
@@ -267,7 +269,7 @@ build_libvpx() {
     do_configure "--target=generic-gnu --prefix=$mingw_w64_x86_64_prefix --enable-static --disable-shared"
   fi
   do_make_install "extralibs='-lpthread'"
-  cd ..
+  cd ${archdir}
 }
 
 download_and_unpack_file() {
@@ -293,15 +295,15 @@ generic_download_and_install() {
   local english_name="$2" 
   local extra_configure_options="$3"
   download_and_unpack_file $url $english_name
-  cd $english_name || exit "needs 2 parameters"
+  cd ${archdir}/$english_name || exit "needs 2 parameters"
   generic_configure $extra_configure_options
   do_make_install
-  cd ..
+  cd ${archdir}
 }
 
 build_libgsm() {
   download_and_unpack_file http://www.quut.com/gsm/gsm-1.0.13.tar.gz gsm-1.0-pl13
-  cd gsm-1.0-pl13
+  cd ${archdir}/gsm-1.0-pl13
   #not needed, but who wants toast gets toast ;-)
   sed -i -e '/HAS_FCHMOD/,+14d' src/toast.c
   sed -i -e '/HAS_FCHOWN/,+6d' src/toast.c
@@ -309,7 +311,7 @@ build_libgsm() {
   cp lib/libgsm.a $mingw_w64_x86_64_prefix/lib || exit 1
   mkdir -p $mingw_w64_x86_64_prefix/include/gsm
   cp inc/gsm.h $mingw_w64_x86_64_prefix/include/gsm || exit 1
-  cd ..
+  cd ${archdir}
 }
 
 build_libogg() {
@@ -330,15 +332,16 @@ build_libtheora() {
 
 build_gmp() {
   download_and_unpack_file ftp://ftp.gnu.org/gnu/gmp/gmp-5.0.5.tar.bz2 gmp-5.0.5
-  cd gmp-5.0.5
+  cd ${archdir}/gmp-5.0.5
   generic_configure "ABI=$bits_target"
   do_make_install
-  cd .. 
+  cd ${archdir}
 }
 
 build_gnutls() {
   generic_download_and_install ftp://ftp.gnu.org/gnu/gnutls/gnutls-3.0.22.tar.xz gnutls-3.0.22
   sed -i 's/-lgnutls *$/-lgnutls -lnettle -lhogweed -lgmp -lcrypt32/' "$PKG_CONFIG_PATH/gnutls.pc"
+  cd ${archdir}
 }
 
 build_libnettle() {
@@ -347,15 +350,15 @@ build_libnettle() {
 
 build_zlib() {
   download_and_unpack_file http://zlib.net/zlib-1.2.7.tar.gz zlib-1.2.7
-  cd zlib-1.2.7
+  cd ${archdir}/zlib-1.2.7
     do_configure "--static --prefix=$mingw_w64_x86_64_prefix"
     do_make_install "CC=$(echo $cross_prefix)gcc AR=$(echo $cross_prefix)ar RANLIB=$(echo $cross_prefix)ranlib"
-  cd ..
+  cd ${archdir}
 }
 
 build_libxvid() {
   download_and_unpack_file http://downloads.xvid.org/downloads/xvidcore-1.3.2.tar.gz xvidcore
-  cd xvidcore/build/generic
+  cd ${archdir}/xvidcore/build/generic
   if [ "$bits_target" = "64" ]; then
     # kludgey work arounds for 64 bit
     local config_opts="--build=x86_64-unknown-linux-gnu --disable-assembly" 
@@ -365,7 +368,7 @@ build_libxvid() {
   # remove old compiler flag that now apparently breaks us
   sed -i "s/-mno-cygwin//" platform.inc 
   do_make_install
-  cd ../../..
+  cd ${archdir}
   # force a static build after the fact
   if [[ -f "$mingw_w64_x86_64_prefix/lib/xvidcore.dll" ]]; then
     rm $mingw_w64_x86_64_prefix/lib/xvidcore.dll || exit 1
@@ -375,7 +378,7 @@ build_libxvid() {
 
 build_openssl() {
   download_and_unpack_file http://www.openssl.org/source/openssl-1.0.1c.tar.gz openssl-1.0.1c
-  cd openssl-1.0.1c
+  cd ${archdir}/openssl-1.0.1c
   export cross="$cross_prefix"
   export CC="${cross}gcc"
   export AR="${cross}ar"
@@ -390,7 +393,31 @@ build_openssl() {
   unset CC
   unset AR
   unset RANLIB
-  cd ..
+  cd ${archdir}
+}
+
+build_libnut() {
+    if [[ -d "${archdir}/libnut" ]]; then
+        cd ${archdir}/libnut
+        nutrev_old=`git rev-parse --short HEAD`
+        cd ${archdir}
+    else
+        nutrev_old="0"
+    fi
+    echo -e "${INFO} \nnutrev_old: $nutrev_old\n${RST}"
+    do_git_checkout git://git.ffmpeg.org/nut libnut
+    cd ${archdir}/libnut
+    nutrev=`git rev-parse --short HEAD`
+    echo -e "${INFO} \nnutrev: $nutrev\n${RST}"
+    if [[ "${nutrev_old}" == "${nutrev}" ]]; then
+        echo -e "\n${PASS}libnut does not need an update.${RST}"
+    else
+        cd ${archdir}/libnut/src/trunk
+        make clean 
+        make CC="${cross_prefix}gcc" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib" && echo -e "${PASS}libnut buildt.${RST}" || echo -e "${WARN}Making libnut failed!${RST}"
+        make install prefix="${mingw_w64_x86_64_prefix}" && echo -e "${PASS}libnut installed.${RST}" || echo -e "${WARN}libnut install failed!.${RST}"
+    fi
+    cd ${archdir}
 }
 
 build_fdk_aac() {
@@ -447,9 +474,10 @@ build_ffmpeg() {
   else
     local ffshared="static"
   fi
-  
-  do_git_checkout https://github.com/FFmpeg/FFmpeg.git ffmpeg_git
-  cd ffmpeg_git
+
+  gitdir="ffmpeg_git"
+  do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}
+  cd ${gitdir}
     
   local ffgit=`git rev-parse --short HEAD` && echo -e "\n${PASS}Git Hash (short): ${ffgit}${RST}"
   local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS}Git Rev.: ${ffgitrev}\n" 
@@ -463,16 +491,16 @@ build_ffmpeg() {
     local ffarch=win64
   fi
   
-  local ffdir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
-  local ffpath="${ffbasedir}/${ffdir}"
-  if [[ -d "${ffpath}" ]]; then
-    rm -rf ${ffbasedir}/${ffdir}/*
+  local ffinstalldir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
+  local ffinstallpath="${buildir}/${ffinstalldir}"
+  if [[ -d "${ffinstallpath}" ]]; then
+    rm -rf ${buildir}/${ffinstalldir}/*
   else
-    mkdir -p "${ffpath}"
+    mkdir -p "${ffinstallpath}"
   fi
 
-  config_options="--prefix=$ffpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
-  config_options="$config_options --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32"
+  config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
+  config_options="$config_options --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
   config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-gnutls --enable-libgsm --enable-libfreetype"
   config_options="$config_options --enable-runtime-cpudetect"
   
@@ -491,22 +519,22 @@ build_ffmpeg() {
   rm -f *.exe 
   
   echo -e "\n${INFO}ffmpeg: doing PATH=$PATH make${RST}\n"
-  local ffcpucount=`grep -c ^processor /proc/cpuinfo`
-  make -j${ffcpucount} || exit 1
+  local cpucount=`grep -c ^processor /proc/cpuinfo`
+  make -j${cpucount} || exit 1
   make install
   
   local cur_dir2=$(pwd)
   
-  cd ${ffbasedir}
+  cd ${buildir}
   #cp docs to install dir
-  cp -r ${cur_dir2}/doc ${ffpath}/ 
-  if [[ ! "${ffbz2target}" = "" && ! "${ffdir}" = "" ]]; then
-    echo -e "\n${INFO}Compressing to ${ffdir}.tar.bz2 ${RST}\n"
-    tar -cjf "${ffbz2target}"/${ffdir}.tar.bz2 ${ffdir} && rm -rf ${ffdir}/* && rmdir ${ffdir}
+  cp -r ${cur_dir2}/doc ${ffinstallpath}/ 
+  if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]; then
+    echo -e "\n${INFO}Compressing to ${ffinstalldir}.tar.bz2 ${RST}\n"
+    tar -cjf "${bz2dir}"/${ffinstalldir}.tar.bz2 ${ffinstalldir} && rm -rf ${ffinstalldir}/* && rmdir ${ffinstalldir}
   fi 
    
   cd ${cur_dir2}
-  echo -e "${PASS}\n Done! You will find the bz2 packed binaries in ${ffbasedir} ${RST}\n"
+  echo -e "${PASS}\n Done! You will find the bz2 packed binaries in ${bz2dir} ${RST}\n"
   cd ..
 }
 
@@ -535,6 +563,7 @@ build_all() {
   build_vo_aacenc
   build_freetype
   build_libopenjpeg
+  build_libnut
   if [[ "$non_free" = "y" ]]; then
     build_fdk_aac
     build_faac 
@@ -553,8 +582,7 @@ build_all() {
 
 # Main #########################################################################
 
-ffbasedir="${cur_dir}"
-make_dir "${ffbz2target}"
+make_dir "${bz2dir}"
 
 # Remember to always run the intro, since it adjust pwd
 intro 
@@ -570,30 +598,32 @@ original_path="$PATH"
 if [ -d "mingw-w64-i686" ]; then 
   echo -e "\n${PASS}Building 32-bit ffmpeg...${RST}"
   host_target='i686-w64-mingw32'
-  mingw_w64_x86_64_prefix="$cur_dir/mingw-w64-i686/$host_target"
-  export PATH="$cur_dir/mingw-w64-i686/bin:$original_path"
-  export PKG_CONFIG_PATH="$cur_dir/mingw-w64-i686/i686-w64-mingw32/lib/pkgconfig"
+  mingw_w64_x86_64_prefix="${buildir}/mingw-w64-i686/$host_target"
+  export PATH="${buildir}/mingw-w64-i686/bin:$original_path"
+  export PKG_CONFIG_PATH="${buildir}/mingw-w64-i686/i686-w64-mingw32/lib/pkgconfig"
   bits_target=32
-  cross_prefix="$cur_dir/mingw-w64-i686/bin/i686-w64-mingw32-"
-  mkdir -p win32
-  cd win32
+  cross_prefix="${buildir}/mingw-w64-i686/bin/i686-w64-mingw32-"
+  archdir="${buildir}/win32"
+  mkdir -p ${archdir}
+  cd ${archdir}
   build_all
-  cd ..
+  cd ${buildir}
 fi
 
 # 64bit 
 if [ -d "mingw-w64-x86_64" ]; then 
   echo -e "\n${PASS}Building 64-bit ffmpeg...${RST}"
   host_target='x86_64-w64-mingw32'
-  mingw_w64_x86_64_prefix="$cur_dir/mingw-w64-x86_64/$host_target"
-  export PATH="$cur_dir/mingw-w64-x86_64/bin:$original_path"
-  export PKG_CONFIG_PATH="$cur_dir/mingw-w64-x86_64/x86_64-w64-mingw32/lib/pkgconfig"
-  mkdir -p x86_64
+  mingw_w64_x86_64_prefix="${buildir}/mingw-w64-x86_64/$host_target"
+  export PATH="${buildir}/mingw-w64-x86_64/bin:$original_path"
+  export PKG_CONFIG_PATH="${buildir}/mingw-w64-x86_64/x86_64-w64-mingw32/lib/pkgconfig"
   bits_target=64
-  cross_prefix="$cur_dir/mingw-w64-x86_64/bin/x86_64-w64-mingw32-"
-  cd x86_64
+  cross_prefix="${buildir}/mingw-w64-x86_64/bin/x86_64-w64-mingw32-"
+  archdir="${buildir}/x86_64"
+  mkdir -p ${archdir}
+  cd ${archdir}
   build_all
-  cd ..
+  cd ${buildir}
 fi
 
 cd ..
