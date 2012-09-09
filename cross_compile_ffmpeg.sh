@@ -191,13 +191,16 @@ do_git_checkout() {
         echo -e "${PASS}done downloading $to_dir ${RST}\n"
     else
         cd ${archdir}/${to_dir}
-        echo -e "${INFO}Updating to latest $to_dir version...${RST}\n"
+        echo -e "${INFO}Updating local git repository to latest $to_dir version.${RST}"
         local old_git_version=`git rev-parse HEAD`
         git pull
         local new_git_version=`git rev-parse HEAD`
         if [[ "$old_git_version" != "$new_git_version" ]]; then
+            echo -e "${PASS}${to_dir} updated. Distcleaning...${RST}"
             rm already* # force reconfigure always...
             make distclean
+        else
+            echo -e "${PASS}${to_dir} does not need an update.${RST}\n"
         fi 
         cd ${archdir}
     fi
@@ -266,7 +269,7 @@ do_make_install() {
         make -s clean
         make $extra_make_options || exit 1
         touch already_ran_make
-        make install $extra_make_options || exit 1
+        make install || exit 1
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
@@ -310,29 +313,51 @@ build_x264() {
 build_librtmp() {
     do_git_checkout "http://repo.or.cz/r/rtmpdump.git" rtmpdump_git
     cd ${archdir}/rtmpdump_git/librtmp
-    if $ffgnutls
+    if [ ! -f "already_ran_make_install" ]
     then
-        make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
-    else
-        make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
+        if $ffgnutls && [ ! -f "already_gnutls" ]
+        then
+            if [ -f "already_openssl" ]
+            then
+                rm "already_openssl"
+            fi
+            make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
+            touch already_gnutls
+        elif ! $ffgnutls && [ ! -f "already_openssl" ]
+        then
+            if [ -f "already_gnutls" ]
+            then
+                rm "already_gnutls"
+            fi
+            make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
+            touch already_openssl
+        fi
+        touch already_ran_make_install
+        echo -e "${PASS}Successfully did make and install librtmp ${RST}\n"
     fi
     cd ${archdir}
 }
 
 build_utvideo() {
     # shared ffmpeg will not build with utvideo
-    download_and_unpack_file https://github.com/downloads/rdp/FFmpeg/utvideo-11.1.0-src.zip utvideo-11.1.0
-    cd utvideo-11.1.0
-    local file2patch="utv_core/Codec.h"
-    if grep -Fxq "#include <windows.h>" $file2patch
+    local localdir="utvideo-11.1.0"
+    download_and_unpack_file https://github.com/downloads/rdp/FFmpeg/utvideo-11.1.0-src.zip ${localdir}
+    cd ${localdir}
+    if [ ! -f "already_ran_make_install" ]
     then
-        echo -e "${INFO}Already patched ${file2patch} ${RST}\n"
-    else
-        echo -e "${INFO}Patching ${file2patch} ${RST}\n"
-        sed -i 's@#pragma once@#pragma once\n#include <windows.h>@' $file2patch
-        sed -i 's@\r@@' $file2patch
+        local file2patch="utv_core/Codec.h"
+        if grep -Fxq "#include <windows.h>" $file2patch
+        then
+            echo -e "${INFO}Already patched ${file2patch} ${RST}\n"
+        else
+            echo -e "${INFO}Patching ${file2patch} ${RST}\n"
+            sed -i 's@#pragma once@#pragma once\n#include <windows.h>@' $file2patch
+            sed -i 's@\r@@' $file2patch
+        fi
+        make install CROSS_PREFIX=$cross_prefix DESTDIR= prefix=$mingw_w64_x86_64_prefix || exit 1
+        touch already_ran_make_install
+        echo -e "${PASS}Successfully did make and install ${localdir} ${RST}\n"
     fi
-    make install CROSS_PREFIX=$cross_prefix DESTDIR= prefix=$mingw_w64_x86_64_prefix
     cd ${archdir}
 }
 
@@ -367,7 +392,6 @@ build_libflite() {
     generic_configure
     do_make
     make install # it fails in error...
-    make_dir $mingw_w64_x86_64_prefix/bin/flite
     if [[ "$bits_target" = "32" ]]; then
         cp ./build/i386-mingw32/lib/*.a $mingw_w64_x86_64_prefix/lib || exit 1
     else
@@ -524,7 +548,6 @@ build_libnut() {
     if [[ -d "${archdir}/${localdir}" ]]; then
         cd ${archdir}/${localdir}
         local githash_old=`git rev-parse --short HEAD`
-        echo -e "${INFO} githash_old: $githash_old${RST}"
         cd ${archdir}
     else
         local githash_old="0"
@@ -532,14 +555,11 @@ build_libnut() {
     do_git_checkout git://git.ffmpeg.org/nut ${localdir}
     cd ${archdir}/${localdir}
     local githash=`git rev-parse --short HEAD`
-    echo -e "${INFO} githash: $githash${RST}"
-    if [[ "${githash_old}" == "${githash}" ]]; then
-        echo -e "${PASS}${localdir} does not need an update.${RST}"
-    else
+    if [[ "${githash_old}" != "${githash}" ]]; then
         cd ${archdir}/${localdir}/src/trunk
         make clean 
         make CC="${cross_prefix}gcc" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib" && echo -e "${PASS}libnut built.${RST}" || echo -e "${WARN}Making libnut failed!${RST}"
-        make install prefix="${mingw_w64_x86_64_prefix}" && echo -e "${PASS}libnut installed.${RST}" || echo -e "${WARN}libnut install failed!.${RST}"
+        make install prefix="${mingw_w64_x86_64_prefix}" && echo -e "${PASS}libnut installed.${RST}\n" || echo -e "${WARN}libnut install failed!.${RST}\n"
     fi
     cd ${archdir}
 }
@@ -814,4 +834,4 @@ else
 fi
 
 cd ${basedir}
-echo -e "${WARN}\nAll complete. Ending ffmpeg cross compiler script.\n${PASS}Bye. ;-) ${RST}\n "
+echo -e "${PASS}\nAll complete. Ending ffmpeg cross compiler script.\n${PASS}Bye. ;-) ${RST}\n "
