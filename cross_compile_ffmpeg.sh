@@ -167,9 +167,13 @@ do_git_checkout() {
     else
         cd ${archdir}/${to_dir}
         echo -e "\n${INFO}Updating to latest $to_dir version...${RST}"
-        git checkout master
-        git reset --hard
+        local old_git_version=`git rev-parse HEAD`
         git pull
+        local new_git_version=`git rev-parse HEAD`
+        if [[ "$old_git_version" != "$new_git_version" ]]; then
+            rm already* # force reconfigure always...
+            make distclean
+        fi 
         cd ${archdir}
     fi
 }
@@ -190,10 +194,9 @@ do_configure() {
         # always reconfigure ffmpeg-git
         if [ $english_name = "ffmpeg_git" ]; then
             # make distclean before configure (only ffmpeg_git)
-            make -s distclean > /dev/null 2>&1 
+            make -s distclean
         fi
         echo -e "${INFO}configuring $english_name as $ PATH=$PATH $configure_name $configure_options${RST}"
-        make -s clean /dev/null 2>&1
         if [ -f bootstrap.sh ]; then
             ./bootstrap.sh
         elif [ -f autogen.sh ]; then
@@ -202,6 +205,7 @@ do_configure() {
         # any old configuration options, since they'll be out of date after the next configure
         rm -f already_configured*
         rm -f already_ran_make
+        make -s distclean
         "$configure_name" $configure_options || exit 1
         touch -- "$touch_name"
     else
@@ -219,12 +223,29 @@ do_make_install() {
     local localdir=$(pwd)
     if [ ! -f already_ran_make ]; then
         echo -e "\n${INFO}making ${localdir} as $ PATH=$PATH make ${extra_make_options} ${RST}"
-        make -s clean /dev/null 2>&1
+        make -s clean
         make $extra_make_options || exit 1
-        make install $extra_make_options || exit 1
         touch already_ran_make
+        echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}"
     else
-        echo -e "${PASS}already did make $(basename "$localdir") ${RST}"
+        echo -e "${INFO}already did make  $(basename "$localdir") ${RST}"
+    fi
+}
+
+
+do_make_install() {
+    extra_make_options="$*"
+    local localdir=$(pwd)
+    if [ ! -f already_ran_make ]; then
+        echo -e "\n${INFO}making ${localdir} as $ PATH=$PATH make ${extra_make_options} ${RST}"
+        make -s clean
+        make $extra_make_options || exit 1
+        touch already_ran_make
+        make install $extra_make_options || exit 1
+        touch already_ran_make_install
+        echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}"
+    else
+        echo -e "${INFO}already did make and install $(basename "$localdir") ${RST}"
     fi
 }
 
@@ -234,7 +255,7 @@ download_and_unpack_file() {
     output_dir="$2"
     if [ ! -f "$output_dir/unpacked.successfully" ]; then
         wget "$url" -O "$output_name" || exit 1
-        tar -xf "$output_name" || exit 1
+        tar -xf "$output_name" || unzip $output_name || exit 1
         touch "$output_dir/unpacked.successfully"
         rm "$output_name"
     fi
@@ -264,9 +285,33 @@ build_x264() {
 build_librtmp() {
     do_git_checkout "http://repo.or.cz/r/rtmpdump.git" rtmpdump_git
     cd ${archdir}/rtmpdump_git/librtmp
-    # TODO use gnuts?
-    make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
+    if [[ "$1" -eq "gnutls" ]]
+    then
+        make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
+    else
+        make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
+    fi
     cd ${archdir}
+}
+
+build_utvideo() {
+  download_and_unpack_file https://github.com/downloads/rdp/FFmpeg/utvideo-11.1.0-src.zip utvideo-11.1.0 # local copy :)
+  cd utvideo-11.1.0
+    patch -f -p0 <<EOL
+--- utv_core/Codec.h 2011-08-30 22:49:14.000000000 -0600
++++ utv_core/Codec.h 2012-09-06 16:19:20.637207065 -0600
+@@ -2,6 +2,7 @@
+/* $Id: Codec.h 731 2011-08-30 13:49:13Z umezawa $ */
+
+#pragma once
++#include <windows.h>
+
+#define CBGROSSWIDTH_NATURAL ((size_t)0)
+#define CBGROSSWIDTH_WINDOWS ((size_t)-1)
+
+EOL
+    make install CROSS_PREFIX=$cross_prefix DESTDIR=$mingw_w64_x86_64_prefix prefix=
+  cd ..
 }
 
 build_libopenjpeg() {
@@ -290,6 +335,17 @@ build_libvpx() {
     fi
     do_make_install "extralibs='-lpthread'"
     cd ${archdir}
+}
+
+build_libflite() {
+  download_and_unpack_file http://www.speech.cs.cmu.edu/flite/packed/flite-1.4/flite-1.4-release.tar.bz2 flite-1.4-release
+  cd flite-1.4-release
+   sed -i "s|i386-mingw32-|$cross_prefix|" configure*
+   generic_configure
+   do_make
+   make install # it fails in error...
+   cp ./build/i386-mingw32/lib/*.a $mingw_w64_x86_64_prefix/lib || exit 1
+  cd ..
 }
 
 build_libgsm() {
@@ -319,6 +375,37 @@ build_libspeex() {
 
 build_libtheora() {
     generic_download_and_install http://downloads.xiph.org/releases/theora/libtheora-1.1.1.tar.bz2 libtheora-1.1.1
+}
+
+build_libfribidi() {
+  download_and_unpack_file http://fribidi.org/download/fribidi-0.19.4.tar.bz2 fribidi-0.19.4
+  cd fribidi-0.19.4
+    # export symbols right...
+    patch -f -p0 <<EOL
+--- lib/fribidi-common.h	2008-02-04 21:30:46.000000000 +0000
++++ lib/fribidi-common.h	2008-02-04 21:32:25.000000000 +0000
+@@ -53,11 +53,7 @@
+ 
+ /* FRIBIDI_ENTRY is a macro used to declare library entry points. */
+ #ifndef FRIBIDI_ENTRY
+-# if (defined(WIN32)) || (defined(_WIN32_WCE))
+-#  define FRIBIDI_ENTRY __declspec(dllimport)
+-# else /* !WIN32 */
+ #  define FRIBIDI_ENTRY		/* empty */
+-# endif	/* !WIN32 */
+ #endif /* !FRIBIDI_ENTRY */
+ 
+ #if FRIBIDI_USE_GLIB+0
+
+EOL
+  generic_configure
+  do_make_install
+  cd ..
+}
+
+build_libass() {
+  generic_download_and_install http://libass.googlecode.com/files/libass-0.10.0.tar.gz libass-0.10.0
+  sed -i 's/-lass -lm/-lass -lfribidi -lm/' "$PKG_CONFIG_PATH/libass.pc"
 }
 
 build_gmp() {
@@ -367,6 +454,15 @@ build_libxvid() {
     fi
 }
 
+build_fontconfig() {
+  download_and_unpack_file http://www.freedesktop.org/software/fontconfig/release/fontconfig-2.10.1.tar.gz fontconfig-2.10.1
+  cd fontconfig-2.10.1
+    generic_configure --disable-docs
+    do_make_install
+  cd .. 
+  sed -i 's/-L${libdir} -lfontconfig[^l]*$/-L${libdir} -lfontconfig -lfreetype -lexpat/' "$PKG_CONFIG_PATH/fontconfig.pc"
+}
+
 build_openssl() {
     download_and_unpack_file http://www.openssl.org/source/openssl-1.0.1c.tar.gz openssl-1.0.1c
     cd ${archdir}/openssl-1.0.1c
@@ -413,9 +509,6 @@ build_libnut() {
 }
 
 build_fdk_aac() {
-    #generic_download_and_install http://sourceforge.net/projects/opencore-amr/files/fdk-aac/fdk-aac-0.1.0.tar.gz/download fdk-aac-0.1.0
-    
-    # Build git version - TODO: if new git version -> reconfigure
     local localdir="fdk-aac"
     do_git_checkout git://github.com/mstorsjo/fdk-aac.git ${localdir}
     cd ${archdir}/${localdir}
@@ -430,6 +523,11 @@ build_fdk_aac() {
     do_make_install
     cd ${archdir}
 }
+
+build_libexpat() {
+  generic_download_and_install http://sourceforge.net/projects/expat/files/expat/2.1.0/expat-2.1.0.tar.gz/download expat-2.1.0
+}
+
 
 build_freetype() {
     generic_download_and_install http://download.savannah.gnu.org/releases/freetype/freetype-2.4.10.tar.gz freetype-2.4.10
@@ -507,11 +605,17 @@ build_ffmpeg() {
     config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
     config_options="$config_options --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
     config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-gnutls --enable-libgsm --enable-libfreetype"
+    # additional config options (not enabled yet)
+    # config_options="$config_options --disable-optimizations --enable-mmx --disable-postproc --enable-libflite --enable-fontconfig --enable-libass --enable-libutvideo"
+ 
     config_options="$config_options --enable-runtime-cpudetect"
     if [[ "$non_free" = "y" ]]; then
-        config_options="$config_options --enable-nonfree --enable-openssl --enable-libfdk-aac" 
+        config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
         # faac is less quality than dk.aac and becomes the default -- comment the build_faac line to exclude it
         config_options="$config_options --enable-libfaac"
+    fi
+    if  [ ! $ffgnutls ] ; then
+        config_options="$config_options --enable-openssl"
     fi
     if [[ "$ffshared" = "shared" ]] ; then
         config_options="$config_options --disable-static --enable-shared"
@@ -547,7 +651,8 @@ build_all() {
     # needs gmp
     build_libnettle 
     # needs libnettle
-    build_gnutls 
+    build_gnutls
+    # build_libflite
     build_libgsm
     # needed for ffplay to be created
     build_sdl 
@@ -563,7 +668,12 @@ build_all() {
     build_lame
     build_libvpx
     build_vo_aacenc
+    build_utvideo
     build_freetype
+    build_libexpat
+    build_fontconfig
+    build_libfribidi
+    build_libass
     build_libopenjpeg
     build_libnut
     if [[ "$non_free" = "y" ]]; then
