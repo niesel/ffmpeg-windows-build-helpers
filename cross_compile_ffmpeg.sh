@@ -33,6 +33,9 @@ ff32=false
 ff64=false
 # use gnutls instead of openssl
 ffgnutls=true
+# do vanilla ffmpeg build (no external libaries)
+ffvanilla=false
+
 
 # Text color variables #########################################################
 
@@ -92,10 +95,16 @@ intro() {
     make_dir "${buildir}"  
     cd "${buildir}"
     
-    echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
-    echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
-    yes_no_sel "${QUES}Include non-free?${RST} [y/n]?"
-    non_free="$user_input"
+    yes_no_sel "\n${QUES}Build and include external libs? (libx264,librtmp,libxvid, etc) ${RST} [y/n]?"
+    if [[ "$user_input" = "y" ]]; then 
+        ffvanilla=false
+        echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
+        echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
+        yes_no_sel "${QUES}Include non-free?${RST} [y/n]?"
+        non_free="$user_input"
+    else
+        ffvanilla=true
+    fi
     
     yes_no_sel "\n${QUES}Would you like to make a 32-bit build?${RST} [y/n]?"
     if [[ "$user_input" = "y" ]]; then 
@@ -212,7 +221,7 @@ do_configure() {
             # make distclean before configure (only ffmpeg_git)
             make -s distclean
         fi
-        echo -e "${INFO}configuring $english_name as PATH=$PATH $configure_name $configure_options${RST}\n"
+        echo -e "${INFO}configuring $english_name as PATH=$PATH $configure_name $configure_options${RST}"
         if [ -f bootstrap.sh ]; then
             ./bootstrap.sh
         elif [ -f autogen.sh ]; then
@@ -225,7 +234,7 @@ do_configure() {
         "$configure_name" $configure_options || exit 1
         touch -- "$touch_name"
     else
-        echo -e "${PASS}already configured $localdir ${RST}\n" 
+        echo -e "${PASS}already configured $localdir ${RST}" 
     fi
 }
 
@@ -314,8 +323,15 @@ build_utvideo() {
     # shared ffmpeg will not build with utvideo
     download_and_unpack_file https://github.com/downloads/rdp/FFmpeg/utvideo-11.1.0-src.zip utvideo-11.1.0
     cd utvideo-11.1.0
-    sed -i 's@#pragma once@#pragma once\n#include <windows.h>@' utv_core/Codec.h
-    sed -i 's@\r@@' utv_core/Codec.h
+    local file2patch="utv_core/Codec.h"
+    if grep -Fxq "#include <windows.h>" $file2patch
+    then
+        echo -e "${INFO}Already patched ${file2patch} ${RST}\n"
+    else
+        echo -e "${INFO}Patching ${file2patch} ${RST}\n"
+        sed -i 's@#pragma once@#pragma once\n#include <windows.h>@' $file2patch
+        sed -i 's@\r@@' $file2patch
+    fi
     make install CROSS_PREFIX=$cross_prefix DESTDIR= prefix=$mingw_w64_x86_64_prefix
     cd ${archdir}
 }
@@ -362,14 +378,17 @@ build_libflite() {
 
 build_libgsm() {
     download_and_unpack_file http://www.quut.com/gsm/gsm-1.0.13.tar.gz gsm-1.0-pl13
-    cd ${archdir}/gsm-1.0-pl13
-    #not needed, but who wants toast gets toast ;-)
-    sed -i -e '/HAS_FCHMOD/,+14d' src/toast.c
-    sed -i -e '/HAS_FCHOWN/,+6d' src/toast.c
-    make CC=${cross_prefix}gcc AR=${cross_prefix}ar RANLIB=${cross_prefix}ranlib INSTALL_ROOT=${mingw_w64_x86_64_prefix}
-    cp lib/libgsm.a $mingw_w64_x86_64_prefix/lib || exit 1
-    mkdir -p $mingw_w64_x86_64_prefix/include/gsm
-    cp inc/gsm.h $mingw_w64_x86_64_prefix/include/gsm || exit 1
+    if [[ ! -f $mingw_w64_x86_64_prefix/include/gsm/gsm.h  || ! -f $mingw_w64_x86_64_prefix/lib/libgsm.a ]]
+    then
+        cd ${archdir}/gsm-1.0-pl13
+        # not really needed, but who wants toast gets toast ;-)
+        sed -i -e '/HAS_FCHMOD/,+14d' src/toast.c
+        sed -i -e '/HAS_FCHOWN/,+6d' src/toast.c
+        make CC=${cross_prefix}gcc AR=${cross_prefix}ar RANLIB=${cross_prefix}ranlib INSTALL_ROOT=${mingw_w64_x86_64_prefix}
+        cp lib/libgsm.a $mingw_w64_x86_64_prefix/lib || exit 1
+        mkdir -p $mingw_w64_x86_64_prefix/include/gsm
+        cp inc/gsm.h $mingw_w64_x86_64_prefix/include/gsm || exit 1
+    fi
     cd ${archdir}
 }
 
@@ -505,17 +524,17 @@ build_libnut() {
     if [[ -d "${archdir}/${localdir}" ]]; then
         cd ${archdir}/${localdir}
         local githash_old=`git rev-parse --short HEAD`
+        echo -e "${INFO} githash_old: $githash_old${RST}"
         cd ${archdir}
     else
         local githash_old="0"
     fi
-    echo -e "${INFO} \ngithash_old: $githash_old\n${RST}"
     do_git_checkout git://git.ffmpeg.org/nut ${localdir}
     cd ${archdir}/${localdir}
     local githash=`git rev-parse --short HEAD`
-    echo -e "${INFO} \ngithash: $githash\n${RST}"
+    echo -e "${INFO} githash: $githash${RST}"
     if [[ "${githash_old}" == "${githash}" ]]; then
-        echo -e "\n${PASS}${localdir} does not need an update.${RST}"
+        echo -e "${PASS}${localdir} does not need an update.${RST}"
     else
         cd ${archdir}/${localdir}/src/trunk
         make clean 
@@ -574,8 +593,8 @@ build_sdl() {
     rmdir temp
 }
 
-build_opus() {
-    local localdir="opus"
+build_libopus() {
+    local localdir="libopus"
     do_git_checkout git://git.opus-codec.org/opus.git ${localdir}
     cd ${archdir}/${localdir}
     do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingw_w64_x86_64_prefix"
@@ -613,6 +632,10 @@ build_ffmpeg() {
     fi
     local ffarch="win${bits_target}"
     local ffinstalldir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
+    if $ffvanilla
+    then
+        ffinstalldir="${ffinstalldir}-vanilla"
+    fi
     local ffinstallpath="${buildir}/${ffinstalldir}"
     if [[ -d "${ffinstallpath}" ]]; then
         rm -rf ${buildir}/${ffinstalldir}/*
@@ -620,33 +643,38 @@ build_ffmpeg() {
         mkdir -p "${ffinstallpath}"
     fi
     
-    config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-libx264 --enable-avisynth --enable-libxvid --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
-    config_options="$config_options --enable-libmp3lame --enable-version3 --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --enable-zlib --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
-    config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-libgsm --enable-libfreetype"
-    # additional config options (not enabled yet)
-    # config_options="$config_options --disable-optimizations --enable-mmx --disable-postproc --enable-libflite --enable-fontconfig --enable-libass --enable-libutvideo"
-    # config_options="$config_options --enable-libutvideo"
-    # disable fontconfig for now
-    config_options="$config_options --enable-fontconfig --enable-libass"
- 
-    config_options="$config_options --enable-runtime-cpudetect"
-    if [[ "$non_free" = "y" ]]; then
-        config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
-        # faac is less quality than dk.aac and becomes the default -- comment the build_faac line to exclude it
-        config_options="$config_options --enable-libfaac"
-    fi
-    if  $ffgnutls
+    config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-version3 --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
+    if ! $ffvanilla
     then
-        config_options="$config_options --enable-gnutls "
-    else
-        config_options="$config_options --enable-openssl"
+        config_options="$config_options --enable-zlib --enable-libx264 --enable-libxvid --enable-libmp3lame --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
+        config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-libgsm --enable-libfreetype"
+        # additional config options (not enabled yet)
+        # config_options="$config_options --disable-optimizations --enable-mmx --disable-postproc --enable-libflite --enable-fontconfig --enable-libass --enable-libutvideo"
+        # config_options="$config_options --enable-libutvideo"
+        # disable fontconfig for now
+        config_options="$config_options --enable-fontconfig --enable-libass --enable-libopus"
+     
+        config_options="$config_options --enable-runtime-cpudetect"
+        if [[ "$non_free" = "y" ]]; then
+            config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
+            # faac is less quality than dk.aac and becomes the default -- comment the build_faac line to exclude it
+            config_options="$config_options --enable-libfaac"
+        fi
+        if  $ffgnutls
+        then
+            config_options="$config_options --enable-gnutls "
+        else
+            config_options="$config_options --enable-openssl"
+        fi
+        if [ "$bits_target" = "32" ]; then
+            config_options="$config_options"
+        fi
     fi
-    if [ "$bits_target" = "32" ]; then
-        config_options="$config_options --enable-libflite"
-    fi
+    
     if [[ "$ffshared" = "shared" ]] ; then
         config_options="$config_options --disable-static --enable-shared"
     fi
+    
     do_configure "$config_options"
     
     # just in case some library dependency was updated, force it to re-link
@@ -672,55 +700,58 @@ build_ffmpeg() {
 }
 
 build_all() {
-    # rtmp depends on it [as well as ffmpeg's optional but handy --enable-zlib]
-    build_zlib 
-    if $gnutls
+    if ! $ffvanilla
     then
-        build_gmp
-        # needs gmp
-        build_libnettle 
-        # needs libnettle
-        build_gnutls
-    else
-        build_openssl
+        # rtmp depends on it [as well as ffmpeg's optional but handy --enable-zlib]
+        build_zlib 
+        if $gnutls
+        then
+            build_gmp
+            # needs gmp
+            build_libnettle 
+            # needs libnettle
+            build_gnutls
+        else
+            build_openssl
+        fi
+        build_libgsm
+        # needed for ffplay to be created
+        build_sdl 
+        build_libogg
+        # needs libogg
+        build_libspeex 
+        # needs libogg
+        build_libvorbis
+        # needs libvorbis, libogg
+        build_libtheora 
+        build_libxvid
+        build_x264
+        build_lame
+        build_libvpx
+        build_vo_aacenc
+        build_utvideo
+        build_freetype
+        build_libexpat
+        #needs libexpat, freetype
+        build_fontconfig
+        build_libfribidi
+        # needs libexpat, fontconfig, libfribidi, freetype
+        build_libass
+        build_libopus
+        build_libopenjpeg
+        build_libnut
+        if [[ "$non_free" = "y" ]]; then
+            build_fdk_aac
+            build_faac 
+        fi
+        # needs openssl or gnutls
+        build_librtmp 
     fi
-    if [ "$bits_target" = "32" ]; then
-        build_libflite
-    fi
-    build_libgsm
-    # needed for ffplay to be created
-    build_sdl 
-    build_libogg
-    # needs libogg
-    build_libspeex 
-    # needs libogg
-    build_libvorbis
-    # needs libvorbis, libogg
-    build_libtheora 
-    build_libxvid
-    build_x264
-    build_lame
-    build_libvpx
-    build_vo_aacenc
-    build_utvideo
-    build_freetype
-    build_libexpat
-    #needs libexpat, freetype
-    build_fontconfig
-    build_libfribidi
-    # needs libexpat, fontconfig, libfribidi, freetype
-    build_libass
-    build_libopenjpeg
-    build_libnut
-    if [[ "$non_free" = "y" ]]; then
-        build_fdk_aac
-        build_faac 
-    fi
-    # needs openssl or gnutls
-    build_librtmp 
+    
     if $ffbuildstatic; then
         build_ffmpeg
     fi
+    
     if $ffbuildshared; then  
         build_ffmpeg shared
     fi
@@ -741,7 +772,6 @@ setup_env
 original_path="$PATH"
 
 # 32bit
-echo -e "${WARN} ${ff32} ${RST}\n "
 if [ -d "mingw-w64-i686" ] && $ff32 ; then 
     echo -e "\n${PASS}Building 32-bit ffmpeg...${RST}"
     host_target='i686-w64-mingw32'
