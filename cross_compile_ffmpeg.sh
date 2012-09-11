@@ -157,7 +157,7 @@ install_cross_compiler() {
     if [ -d mingw-w64-i686 ]; then
         touch mingw-w64-i686/compiler.done
     fi
-    echo -e "${PASS}Ok, done building MinGW-w64 cross-compiler...${RST}\n"
+    echo -e "${PASS}OK, done building MinGW-w64 cross-compiler...${RST}\n"
 }
 
 setup_env() {
@@ -188,7 +188,7 @@ do_git_checkout() {
         # prevent partial checkouts by renaming it only after success
         git clone $repo_url $to_dir.tmp || exit 1
         mv $to_dir.tmp $to_dir
-        echo -e "${PASS}done downloading $to_dir ${RST}\n"
+        echo -e "${PASS}Done downloading $to_dir ${RST}\n"
     else
         cd ${archdir}/${to_dir}
         echo -e "${INFO}Updating local git repository to latest $to_dir version.${RST}"
@@ -196,9 +196,9 @@ do_git_checkout() {
         git pull
         local new_git_version=`git rev-parse HEAD`
         if [[ "$old_git_version" != "$new_git_version" ]]; then
-            echo -e "${PASS}${to_dir} updated. Distcleaning...${RST}"
+            echo -e "${PASS}${to_dir} updated..${RST}"
+            # force reconfigure always...
             rm already* # force reconfigure always...
-            make distclean
         else
             echo -e "${PASS}${to_dir} does not need an update.${RST}\n"
         fi 
@@ -209,7 +209,8 @@ do_git_checkout() {
 do_configure() {
     configure_options="$1"
     configure_name="$2"
-    if [[ "$configure_name" = "" ]]; then
+    if [[ "$configure_name" = "" ]]
+    then
         configure_name="./configure"
     fi
     local localdir=$(pwd)
@@ -218,45 +219,43 @@ do_configure() {
     local touch_name=$(echo -- $configure_options | /usr/bin/env md5sum) 
     # add prefix so we can delete it easily, remove spaces
     touch_name=$(echo already_configured_$touch_name | sed "s/ //g") 
-    if [ $english_name = "ffmpeg_git" -o ! -f "$touch_name" ]; then 
-        # always reconfigure ffmpeg-git
-        if [ $english_name = "ffmpeg_git" ]; then
-            # make distclean before configure (only ffmpeg_git)
-            make -s distclean
-        fi
-        echo -e "${INFO}configuring $english_name as PATH=$PATH $configure_name $configure_options${RST}"
-        if [ -f bootstrap.sh ]; then
-            ./bootstrap.sh
-        elif [ -f autogen.sh ]; then
-            ./autogen.sh
-        fi
+    if [ $english_name = "ffmpeg_git" -o ! -f "$touch_name" ]
+    then 
         # any old configuration options, since they'll be out of date after the next configure
-        rm -f already_configured*
-        rm -f already_ran_make
+        rm -f already*
+        # always distclean before configuring
         make -s distclean
+        if [ -f autogen.sh ]
+        then
+            ./autogen.sh
+        elif [ -f bootstrap.sh ]
+        then
+            ./bootstrap.sh
+        fi
+        echo -e "${INFO}Configuring $english_name\nPATH=$PATH $configure_name $configure_options${RST}"
         "$configure_name" $configure_options || exit 1
         touch -- "$touch_name"
     else
-        echo -e "${PASS}already configured $localdir ${RST}" 
+        echo -e "${PASS}Already configured $localdir ${RST}" 
     fi
 }
 
 generic_configure() {
   local extra_configure_options="$*"
-  do_configure "--host=$host_target --prefix=$mingw_w64_x86_64_prefix --disable-shared --enable-static $extra_configure_options"
+  do_configure "--host=$host_target --prefix=$mingwprefix --disable-shared --enable-static $extra_configure_options"
 }
 
 do_make() {
     extra_make_options="$*"
     local localdir=$(pwd)
     if [ ! -f already_ran_make ]; then
-        echo -e "${INFO}making ${localdir} as $ PATH=$PATH make ${extra_make_options} ${RST}"
+        echo -e "${INFO}Making ${localdir} as:\nPATH=$PATH make ${extra_make_options} ${RST}"
         make -s clean
         make $extra_make_options || exit 1
         touch already_ran_make
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
-        echo -e "${INFO}already did make  $(basename "$localdir") ${RST}\n"
+        echo -e "${INFO}Already did make  $(basename "$localdir") ${RST}\n"
     fi
 }
 
@@ -265,7 +264,7 @@ do_make_install() {
     extra_make_options="$*"
     local localdir=$(pwd)
     if [ ! -f already_ran_make ]; then
-        echo -e "${INFO}making ${localdir} as $ PATH=$PATH make ${extra_make_options} ${RST}"
+        echo -e "${INFO}Making ${localdir} as:\n PATH=$PATH make ${extra_make_options} ${RST}"
         make -s clean
         make $extra_make_options || exit 1
         touch already_ran_make
@@ -273,7 +272,7 @@ do_make_install() {
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
-        echo -e "${INFO}already did make and install $(basename "$localdir") ${RST}\n"
+        echo -e "${INFO}Already did make and install $(basename "$localdir") ${RST}\n"
     fi
 }
 
@@ -304,7 +303,7 @@ generic_download_and_install() {
 build_x264() {
     do_git_checkout "http://repo.or.cz/r/x264.git" "x264"
     cd ${archdir}/x264
-    do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingw_w64_x86_64_prefix --enable-win32thread"
+    do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --enable-win32thread"
     # rm -f already_ran_make # just in case the git checkout did something, re-make
     do_make_install
     cd ${archdir}
@@ -321,7 +320,7 @@ build_librtmp() {
             then
                 rm "already_openssl"
             fi
-            make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
+            make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" || exit 1
             touch already_gnutls
         elif ! $ffgnutls && [ ! -f "already_openssl" ]
         then
@@ -329,7 +328,7 @@ build_librtmp() {
             then
                 rm "already_gnutls"
             fi
-            make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingw_w64_x86_64_prefix" || exit 1
+            make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" || exit 1
             touch already_openssl
         fi
         touch already_ran_make_install
@@ -354,7 +353,7 @@ build_utvideo() {
             sed -i 's@#pragma once@#pragma once\n#include <windows.h>@' $file2patch
             sed -i 's@\r@@' $file2patch
         fi
-        make install CROSS_PREFIX=$cross_prefix DESTDIR= prefix=$mingw_w64_x86_64_prefix || exit 1
+        make install CROSS_PREFIX=$cross_prefix DESTDIR= prefix=$mingwprefix || exit 1
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install ${localdir} ${RST}\n"
     fi
@@ -376,9 +375,9 @@ build_libvpx() {
     cd ${archdir}/libvpx-v1.1.0
     export CROSS="$cross_prefix"
     if [[ "$bits_target" = "32" ]]; then
-        do_configure "--target=generic-gnu --prefix=$mingw_w64_x86_64_prefix --enable-static --disable-shared"
+        do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
     else
-        do_configure "--target=generic-gnu --prefix=$mingw_w64_x86_64_prefix --enable-static --disable-shared"
+        do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
     fi
     do_make_install "extralibs='-lpthread'"
     cd ${archdir}
@@ -393,25 +392,25 @@ build_libflite() {
     do_make
     make install # it fails in error...
     if [[ "$bits_target" = "32" ]]; then
-        cp ./build/i386-mingw32/lib/*.a $mingw_w64_x86_64_prefix/lib || exit 1
+        cp ./build/i386-mingw32/lib/*.a $mingwprefix/lib || exit 1
     else
-        cp ./build/x68_64-mingw32/lib/*.a $mingw_w64_x86_64_prefix/lib || exit 1
+        cp ./build/x68_64-mingw32/lib/*.a $mingwprefix/lib || exit 1
     fi
     cd ${archdir}
 }
 
 build_libgsm() {
     download_and_unpack_file http://www.quut.com/gsm/gsm-1.0.13.tar.gz gsm-1.0-pl13
-    if [[ ! -f $mingw_w64_x86_64_prefix/include/gsm/gsm.h  || ! -f $mingw_w64_x86_64_prefix/lib/libgsm.a ]]
+    if [[ ! -f $mingwprefix/include/gsm/gsm.h  || ! -f $mingwprefix/lib/libgsm.a ]]
     then
         cd ${archdir}/gsm-1.0-pl13
         # not really needed, but who wants toast gets toast ;-)
         sed -i -e '/HAS_FCHMOD/,+14d' src/toast.c
         sed -i -e '/HAS_FCHOWN/,+6d' src/toast.c
-        make CC=${cross_prefix}gcc AR=${cross_prefix}ar RANLIB=${cross_prefix}ranlib INSTALL_ROOT=${mingw_w64_x86_64_prefix}
-        cp lib/libgsm.a $mingw_w64_x86_64_prefix/lib || exit 1
-        mkdir -p $mingw_w64_x86_64_prefix/include/gsm
-        cp inc/gsm.h $mingw_w64_x86_64_prefix/include/gsm || exit 1
+        make CC=${cross_prefix}gcc AR=${cross_prefix}ar RANLIB=${cross_prefix}ranlib INSTALL_ROOT=${mingwprefix}
+        cp lib/libgsm.a $mingwprefix/lib || exit 1
+        mkdir -p $mingwprefix/include/gsm
+        cp inc/gsm.h $mingwprefix/include/gsm || exit 1
     fi
     cd ${archdir}
 }
@@ -489,8 +488,8 @@ build_libnettle() {
 build_zlib() {
     download_and_unpack_file http://zlib.net/zlib-1.2.7.tar.gz zlib-1.2.7
     cd ${archdir}/zlib-1.2.7
-        do_configure "--static --prefix=$mingw_w64_x86_64_prefix"
-        do_make_install "CC=$(echo $cross_prefix)gcc AR=$(echo $cross_prefix)ar RANLIB=$(echo $cross_prefix)ranlib"
+    do_configure "--static --prefix=$mingwprefix"
+    do_make_install "CC=$(echo $cross_prefix)gcc AR=$(echo $cross_prefix)ar RANLIB=$(echo $cross_prefix)ranlib"
     cd ${archdir}
 }
 
@@ -502,14 +501,14 @@ build_libxvid() {
         local config_opts="--build=x86_64-unknown-linux-gnu --disable-assembly" 
     fi
     # no static option...
-    do_configure "--host=$host_target --prefix=$mingw_w64_x86_64_prefix $config_opts" 
+    do_configure "--host=$host_target --prefix=$mingwprefix $config_opts" 
     # remove old compiler flag that now apparently breaks us
     sed -i "s/-mno-cygwin//" platform.inc 
     do_make_install
     # force a static build after the fact
-    if [[ -f "$mingw_w64_x86_64_prefix/lib/xvidcore.dll" ]]; then
-        rm $mingw_w64_x86_64_prefix/lib/xvidcore.dll || exit 1
-        mv $mingw_w64_x86_64_prefix/lib/xvidcore.a $mingw_w64_x86_64_prefix/lib/libxvidcore.a || exit 1
+    if [[ -f "$mingwprefix/lib/xvidcore.dll" ]]; then
+        rm $mingwprefix/lib/xvidcore.dll || exit 1
+        mv $mingwprefix/lib/xvidcore.a $mingwprefix/lib/libxvidcore.a || exit 1
     fi
     cd ${archdir}
 }
@@ -531,9 +530,9 @@ build_openssl() {
     export AR="${cross}ar"
     export RANLIB="${cross}ranlib"
     if [ "$bits_target" = "32" ]; then
-        do_configure "--prefix=$mingw_w64_x86_64_prefix no-shared mingw" ./Configure
+        do_configure "--prefix=$mingwprefix no-shared mingw" ./Configure
     else
-        do_configure "--prefix=$mingw_w64_x86_64_prefix no-shared mingw64" ./Configure
+        do_configure "--prefix=$mingwprefix no-shared mingw64" ./Configure
     fi
     do_make_install
     unset cross
@@ -559,7 +558,7 @@ build_libnut() {
         cd ${archdir}/${localdir}/src/trunk
         make clean 
         make CC="${cross_prefix}gcc" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib" && echo -e "${PASS}libnut built.${RST}" || echo -e "${WARN}Making libnut failed!${RST}"
-        make install prefix="${mingw_w64_x86_64_prefix}" && echo -e "${PASS}libnut installed.${RST}\n" || echo -e "${WARN}libnut install failed!.${RST}\n"
+        make install prefix="${mingwprefix}" && echo -e "${PASS}libnut installed.${RST}\n" || echo -e "${WARN}libnut install failed!.${RST}\n"
     fi
     cd ${archdir}
 }
@@ -572,7 +571,7 @@ build_fdk_aac() {
         libtoolize
         aclocal
         autoheader
-        automake --force-missing --add-missing
+        automake --force-missing --add-missing --gnu
         autoconf
     fi
     generic_configure
@@ -605,10 +604,10 @@ build_sdl() {
     local prefix=$(basename $cross_prefix)
     local bin_dir=$(dirname $cross_prefix)
     # allow ffmpeg to output anything
-    sed -i "s/-mwindows//" "$mingw_w64_x86_64_prefix/bin/sdl-config" 
+    sed -i "s/-mwindows//" "$mingwprefix/bin/sdl-config" 
     sed -i "s/-mwindows//" "$PKG_CONFIG_PATH/sdl.pc"
     # this is the only one in the PATH so use it for now
-    cp "$mingw_w64_x86_64_prefix/bin/sdl-config" "$bin_dir/${prefix}sdl-config" 
+    cp "$mingwprefix/bin/sdl-config" "$bin_dir/${prefix}sdl-config" 
     cd ${archdir}
     rmdir temp
 }
@@ -617,7 +616,7 @@ build_libopus() {
     local localdir="libopus"
     do_git_checkout git://git.opus-codec.org/opus.git ${localdir}
     cd ${archdir}/${localdir}
-    do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingw_w64_x86_64_prefix"
+    do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingwprefix"
     do_make_install
     cd ${archdir}
 }
@@ -641,8 +640,8 @@ build_ffmpeg() {
     do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}
     cd ${gitdir}
       
-    local ffgit=`git rev-parse --short HEAD` && echo -e "\n${PASS}Git Hash (short): ${ffgit}${RST}"
-    local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS}Git Rev.: ${ffgitrev}\n" 
+    local ffgit=`git rev-parse --short HEAD` && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
+    local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS} ffmpeg rev.: ${ffgitrev}${RST}\n" 
     local ffdate=`date +%Y%m%d`
 
     if [ "$bits_target" = "32" ]; then
@@ -712,6 +711,12 @@ build_ffmpeg() {
     if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]; then
         make_dir "${bz2dir}"
         echo -e "\n${INFO}Compressing to ${ffinstalldir}.tar.bz2 ${RST}\n"
+        if [[ "${ffshared}" = "static" ]]
+        then
+            cd ${ffinstalldir}
+            tar -cjf "${bz2dir}"/${ffinstalldir}-binonly.tar.bz2 bin || exit 1
+            cd ${buildir}
+        fi
         tar -cjf "${bz2dir}"/${ffinstalldir}.tar.bz2 ${ffinstalldir} && rm -rf ${ffinstalldir}/* && rmdir ${ffinstalldir}
     fi 
     cd ${localdir}
@@ -795,7 +800,7 @@ original_path="$PATH"
 if [ -d "mingw-w64-i686" ] && $ff32 ; then 
     echo -e "\n${PASS}Building 32-bit ffmpeg...${RST}"
     host_target='i686-w64-mingw32'
-    mingw_w64_x86_64_prefix="${buildir}/mingw-w64-i686/$host_target"
+    mingwprefix="${buildir}/mingw-w64-i686/$host_target"
     export PATH="${buildir}/mingw-w64-i686/bin:$original_path"
     export PKG_CONFIG_PATH="${buildir}/mingw-w64-i686/i686-w64-mingw32/lib/pkgconfig"
     bits_target=32
@@ -816,7 +821,7 @@ fi
 if [ -d "mingw-w64-x86_64" ] && $ff64; then 
     echo -e "\n${PASS}Building 64-bit ffmpeg...${RST}"
     host_target='x86_64-w64-mingw32'
-    mingw_w64_x86_64_prefix="${buildir}/mingw-w64-x86_64/$host_target"
+    mingwprefix="${buildir}/mingw-w64-x86_64/$host_target"
     export PATH="${buildir}/mingw-w64-x86_64/bin:$original_path"
     export PKG_CONFIG_PATH="${buildir}/mingw-w64-x86_64/x86_64-w64-mingw32/lib/pkgconfig"
     bits_target=64
