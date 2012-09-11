@@ -711,12 +711,6 @@ build_ffmpeg() {
     if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]; then
         make_dir "${bz2dir}"
         echo -e "\n${INFO}Compressing to ${ffinstalldir}.tar.bz2 ${RST}\n"
-        if [[ "${ffshared}" = "static" ]]
-        then
-            cd ${ffinstalldir}
-            tar -cjf "${bz2dir}"/${ffinstalldir}-binonly.tar.bz2 bin || exit 1
-            cd ${buildir}
-        fi
         tar -cjf "${bz2dir}"/${ffinstalldir}.tar.bz2 ${ffinstalldir} && rm -rf ${ffinstalldir}/* && rmdir ${ffinstalldir}
     fi 
     cd ${localdir}
