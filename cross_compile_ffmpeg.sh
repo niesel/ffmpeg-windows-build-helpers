@@ -562,6 +562,7 @@ build_fontconfig() {
     fi
     generic_configure --disable-docs 
     do_make_install
+    rm "${basedir}/lib"
     cd ${archdir}
     sed -i 's/-L${libdir} -lfontconfig[^l]*$/-L${libdir} -lfontconfig -lfreetype -lexpat/' "$PKG_CONFIG_PATH/fontconfig.pc"
 }
