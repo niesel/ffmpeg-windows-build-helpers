@@ -3,12 +3,15 @@ ffmpeg-windows-build-helpers
 
 This script is a fork of the brilliant script https://github.com/rdp/ffmpeg-windows-build-helpers by rdp(Roger Pack). 
 
-It lets you compile a Windows version of ffmpeg/ffplay/ffprobe (including some dependency libraries) with  mingw64 on a Linux Machine.
-Working for 32bit and 64bit versions, as static or shared build.
+It lets you compile a Windows version of ffmpeg/ffplay/ffprobe (including some dependency libraries) with mingw64 on a Linux Machine.
 
+Working for 32bit and 64bit versions of ffmpeg, as static or shared build.
 
-To run:
-In a Linux box (VM or native):
+It should work on most Linux distributions with automake and autotools installed, but it is tested on an Ubuntu 12.04 VM. 
+If you want to make shared build of ffmpeg including the MSVC import libraries, it's easier to use a 32bit OS,
+because you don't have to deal with wine prefixes. Just install wine "sudo apt-get install wine" and follow the instructions below.
+
+To run the script:
 
 - First download it (git clone the repo, run it, or do the following in a bash script)
 
@@ -19,7 +22,7 @@ chmod u+x cross_compile_ffmpeg.sh
 ```
 And follow the prompts.
 
-For the shared libaries "lib.exe" under wine is needed.
+For the shared libraries "lib.exe" under wine is needed.
 Install it according to the explanation in the arrozcru wiki
 http://ffmpeg.arrozcru.org/wiki/index.php?title=Cross-compiling :
 
