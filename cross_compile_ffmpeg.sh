@@ -36,6 +36,13 @@ ffgnutls=true
 # do vanilla ffmpeg build (no external libaries)
 ffvanilla=false
 
+################################################################################
+
+type -p lib.exe >/dev/null 2>&1 && libexeok=true || libexeok=false
+if $libexeok
+then
+    libexepath=`type -p lib.exe | head -n1 -q`
+fi
 
 # Text color variables #########################################################
 
@@ -47,14 +54,18 @@ RST='\e[0m'       # Text reset
 
 # Functions ####################################################################
 
+
+
 yes_no_sel () {
     unset user_input
     local question="$1"
     shift
-    while [[ "$user_input" != [YyNn] ]]; do
+    while [[ "$user_input" != [YyNn] ]]
+    do
         echo -e "$question \c"
         read user_input
-        if [[ "$user_input" != [YyNn] ]]; then
+        if [[ "$user_input" != [YyNn] ]]
+        then
             echo -e "\n${WARN}Your selection was not vaild, please try again.\n${RST}"
         fi
     done
@@ -63,15 +74,18 @@ yes_no_sel () {
 }
 
 make_dir () {
-    if [[ ! -d "$*" ]]; then
+    if [[ ! -d "$*" ]]
+    then
         mkdir -p "$*" 
-        if [[ ! -d "$*" ]]; then
+        if [[ ! -d "$*" ]]
+        then
             echo -e "\n${WARN}Could not create $*.\nExiting! ${RST}"; exit 1
         else
             echo -e "\n${PASS}Successfully created $* ${RST}"
         fi
     else
-        if [[ ! -w "${buildir}" ]]; then
+        if [[ ! -w "${buildir}" ]]
+        then
             echo -e "\n${WARN}No write permissions in $*.\nExiting! ${RST}"; exit 1
         else
             echo -e "\n${PASS} Directory $* already exists and is writeable. ${RST}"
@@ -88,7 +102,8 @@ intro() {
     echo -e "you would like them installed, then run this script again."
 
     yes_no_sel "${QUES}Is ${buildir} ok? ${RST}[y/n]?"
-    if [[ "${user_input}" = "n" ]]; then
+    if [[ "${user_input}" = "n" ]]
+    then
         exit 1
     fi
     
@@ -96,7 +111,8 @@ intro() {
     cd "${buildir}"
     
     yes_no_sel "\n${QUES}Build and include external libs? (libx264,librtmp,libxvid, etc) ${RST} [y/n]?"
-    if [[ "$user_input" = "y" ]]; then 
+    if [[ "$user_input" = "y" ]]
+    then 
         ffvanilla=false
         echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
         echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
@@ -107,28 +123,34 @@ intro() {
     fi
     
     yes_no_sel "\n${QUES}Would you like to make a 32-bit build?${RST} [y/n]?"
-    if [[ "$user_input" = "y" ]]; then 
+    if [[ "$user_input" = "y" ]]
+    then 
         ff32=true
     fi
     yes_no_sel "\n${QUES}Would you like to make a 64-bit build?${RST} [y/n]?"
-    if [[ "$user_input" = "y" ]]; then 
+    if [[ "$user_input" = "y" ]]
+    then 
         ff64=true
     fi
-    if ! $ff32 && ! $ff64; then
+    if ! $ff32 && ! $ff64
+    then
         echo -e "\n${WARN}Neither 32-bit nor 64-bit build selected!\nExiting${RST}"; exit 1
     fi
     
-    type -p lib.exe >/dev/null 2>&1 && libexeok=true || libexeok=false
-    if $libexeok; then
+    if $libexeok
+    then
         yes_no_sel "\n${QUES}Would you like to make a static build?${RST} [y/n]?"
-        if [[ "$user_input" = "y" ]]; then 
+        if [[ "$user_input" = "y" ]]
+        then 
             ffbuildstatic=true
         fi
         yes_no_sel "\n${QUES}Would you like to make a shared build?${RST} [y/n]?"
-        if [[ "$user_input" = "y" ]]; then 
+        if [[ "$user_input" = "y" ]]
+        then 
             ffbuildshared=true
         fi
-        if ! $ffbuildstatic && ! $ffbuildshared; then
+        if ! $ffbuildstatic && ! $ffbuildshared
+        then
             echo -e "\n${WARN}Neither static nor shared build selected!\nExiting${RST}"; exit 1
         fi
     else
@@ -139,7 +161,8 @@ intro() {
 }
 
 install_cross_compiler() {
-    if [[ -f "mingw-w64-i686/compiler.done" || -f "mingw-w64-x86_64/compiler.done" ]]; then
+    if [[ -f "mingw-w64-i686/compiler.done" || -f "mingw-w64-x86_64/compiler.done" ]]
+    then
       echo -e "\n${PASS}MinGW-w64 compiler of some type already installed, not re-installing it...${RST}"
       return
     fi
@@ -151,10 +174,12 @@ install_cross_compiler() {
     wget http://zeranoe.com/scripts/mingw_w64_build/mingw-w64-build-3.0.6 -O mingw-w64-build-3.0.6
     chmod u+x mingw-w64-build-3.0.6
     ./mingw-w64-build-3.0.6 --disable-nls --disable-shared --default-configure --clean-build || exit 1
-    if [ -d mingw-w64-x86_64 ]; then
+    if [ -d mingw-w64-x86_64 ]
+    then
         touch mingw-w64-x86_64/compiler.done
     fi
-    if [ -d mingw-w64-i686 ]; then
+    if [ -d mingw-w64-i686 ]
+    then
         touch mingw-w64-i686/compiler.done
     fi
     echo -e "${PASS}OK, done building MinGW-w64 cross-compiler...${RST}\n"
@@ -168,7 +193,8 @@ setup_env() {
 do_svn_checkout() {
     repo_url="$1"
     to_dir="$2"
-    if [ ! -d $to_dir ]; then
+    if [ ! -d $to_dir ]
+    then
         echo -e "${INFO}svn checking out to $to_dir ${RST}\n"
         svn checkout $repo_url $to_dir.tmp || exit 1
         mv $to_dir.tmp $to_dir
@@ -183,7 +209,8 @@ do_svn_checkout() {
 do_git_checkout() {
     repo_url="$1"
     to_dir="$2"
-    if [ ! -d $to_dir ]; then
+    if [ ! -d $to_dir ]
+    then
         echo -e "${INFO}Downloading (via git clone) $to_dir ${RST}"
         # prevent partial checkouts by renaming it only after success
         git clone $repo_url $to_dir.tmp || exit 1
@@ -195,7 +222,8 @@ do_git_checkout() {
         local old_git_version=`git rev-parse HEAD`
         git pull
         local new_git_version=`git rev-parse HEAD`
-        if [[ "$old_git_version" != "$new_git_version" ]]; then
+        if [[ "$old_git_version" != "$new_git_version" ]]
+        then
             echo -e "${PASS}${to_dir} updated..${RST}"
             # force reconfigure always...
             rm already* # force reconfigure always...
@@ -241,14 +269,16 @@ do_configure() {
 }
 
 generic_configure() {
-  local extra_configure_options="$*"
-  do_configure "--host=$host_target --prefix=$mingwprefix --disable-shared --enable-static $extra_configure_options"
+    local extra_configure_options="$*"
+    do_configure "--host=$host_target --prefix=$mingwprefix --disable-shared --enable-static $extra_configure_options"
+    # --build=x86_64-unknown-linux-gnu --target=$host_target
 }
 
 do_make() {
     extra_make_options="$*"
     local localdir=$(pwd)
-    if [ ! -f already_ran_make ]; then
+    if [ ! -f already_ran_make ]
+    then
         echo -e "${INFO}Making ${localdir} as:\nPATH=$PATH make ${extra_make_options} ${RST}"
         make -s clean
         make $extra_make_options || exit 1
@@ -263,7 +293,8 @@ do_make() {
 do_make_install() {
     extra_make_options="$*"
     local localdir=$(pwd)
-    if [ ! -f already_ran_make ]; then
+    if [ ! -f already_ran_make ]
+    then
         echo -e "${INFO}Making ${localdir} as:\n PATH=$PATH make ${extra_make_options} ${RST}"
         make -s clean
         make $extra_make_options || exit 1
@@ -280,11 +311,15 @@ download_and_unpack_file() {
     url="$1"
     output_name=$(basename $url)
     output_dir="$2"
-    if [ ! -f "$output_dir/unpacked.successfully" ]; then
-        wget "$url" -O "$output_name" || exit 1
+    if [ ! -f "$output_dir/unpacked.successfully" ]
+    then
+        if [ ! -f "$output_name" ]
+        then
+            wget "$url" -O "$output_name" || exit 1
+        fi
         tar -xf "$output_name" || unzip $output_name || exit 1
         touch "$output_dir/unpacked.successfully"
-        rm "$output_name"
+        # rm "$output_name"
     fi
 }
 
@@ -374,7 +409,8 @@ build_libvpx() {
     download_and_unpack_file http://webm.googlecode.com/files/libvpx-v1.1.0.tar.bz2 libvpx-v1.1.0
     cd ${archdir}/libvpx-v1.1.0
     export CROSS="$cross_prefix"
-    if [[ "$bits_target" = "32" ]]; then
+    if [[ "$bits_target" = "32" ]]
+    then
         do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
     else
         do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
@@ -391,7 +427,8 @@ build_libflite() {
     generic_configure
     do_make
     make install # it fails in error...
-    if [[ "$bits_target" = "32" ]]; then
+    if [[ "$bits_target" = "32" ]]
+    then
         cp ./build/i386-mingw32/lib/*.a $mingwprefix/lib || exit 1
     else
         cp ./build/x68_64-mingw32/lib/*.a $mingwprefix/lib || exit 1
@@ -496,7 +533,8 @@ build_zlib() {
 build_libxvid() {
     download_and_unpack_file http://downloads.xvid.org/downloads/xvidcore-1.3.2.tar.gz xvidcore
     cd ${archdir}/xvidcore/build/generic
-    if [ "$bits_target" = "64" ]; then
+    if [ "$bits_target" = "64" ]
+    then
         # kludgey work arounds for 64 bit
         local config_opts="--build=x86_64-unknown-linux-gnu --disable-assembly" 
     fi
@@ -506,7 +544,8 @@ build_libxvid() {
     sed -i "s/-mno-cygwin//" platform.inc 
     do_make_install
     # force a static build after the fact
-    if [[ -f "$mingwprefix/lib/xvidcore.dll" ]]; then
+    if [[ -f "$mingwprefix/lib/xvidcore.dll" ]]
+    then
         rm $mingwprefix/lib/xvidcore.dll || exit 1
         mv $mingwprefix/lib/xvidcore.a $mingwprefix/lib/libxvidcore.a || exit 1
     fi
@@ -514,12 +553,17 @@ build_libxvid() {
 }
 
 build_fontconfig() {
-  download_and_unpack_file http://www.freedesktop.org/software/fontconfig/release/fontconfig-2.10.1.tar.gz fontconfig-2.10.1
-  cd fontconfig-2.10.1
-    generic_configure --disable-docs
+    local localdir="fontconfig-2.10.1"
+    download_and_unpack_file http://www.freedesktop.org/software/fontconfig/release/fontconfig-2.10.1.tar.gz ${localdir}
+    cd ${localdir}
+    if $libexeok && [ ! -f "${basedir}/lib" ]
+    then
+        ln -s "${libexepath}" "${basedir}/lib"
+    fi
+    generic_configure --disable-docs 
     do_make_install
-  cd .. 
-  sed -i 's/-L${libdir} -lfontconfig[^l]*$/-L${libdir} -lfontconfig -lfreetype -lexpat/' "$PKG_CONFIG_PATH/fontconfig.pc"
+    cd ${archdir}
+    sed -i 's/-L${libdir} -lfontconfig[^l]*$/-L${libdir} -lfontconfig -lfreetype -lexpat/' "$PKG_CONFIG_PATH/fontconfig.pc"
 }
 
 build_openssl() {
@@ -529,7 +573,8 @@ build_openssl() {
     export CC="${cross}gcc"
     export AR="${cross}ar"
     export RANLIB="${cross}ranlib"
-    if [ "$bits_target" = "32" ]; then
+    if [ "$bits_target" = "32" ]
+    then
         do_configure "--prefix=$mingwprefix no-shared mingw" ./Configure
     else
         do_configure "--prefix=$mingwprefix no-shared mingw64" ./Configure
@@ -544,7 +589,8 @@ build_openssl() {
 
 build_libnut() {
     local localdir="libnut"
-    if [[ -d "${archdir}/${localdir}" ]]; then
+    if [[ -d "${archdir}/${localdir}" ]]
+    then
         cd ${archdir}/${localdir}
         local githash_old=`git rev-parse --short HEAD`
         cd ${archdir}
@@ -554,7 +600,8 @@ build_libnut() {
     do_git_checkout git://git.ffmpeg.org/nut ${localdir}
     cd ${archdir}/${localdir}
     local githash=`git rev-parse --short HEAD`
-    if [[ "${githash_old}" != "${githash}" ]]; then
+    if [[ "${githash_old}" != "${githash}" ]]
+    then
         cd ${archdir}/${localdir}/src/trunk
         make clean 
         make CC="${cross_prefix}gcc" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib" && echo -e "${PASS}libnut built.${RST}" || echo -e "${WARN}Making libnut failed!${RST}"
@@ -567,7 +614,8 @@ build_fdk_aac() {
     local localdir="fdk-aac"
     do_git_checkout git://github.com/mstorsjo/fdk-aac.git ${localdir}
     cd ${archdir}/${localdir}
-    if [[ ! -f configure ]]; then
+    if [[ ! -f configure ]]
+    then
         libtoolize
         aclocal
         autoheader
@@ -630,7 +678,8 @@ build_lame() {
 }
 
 build_ffmpeg() {
-    if [[ "$1" = "shared" ]]; then 
+    if [[ "$1" = "shared" ]]
+    then 
         local ffshared="shared"
     else
         local ffshared="static"
@@ -644,7 +693,8 @@ build_ffmpeg() {
     local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS} ffmpeg rev.: ${ffgitrev}${RST}\n" 
     local ffdate=`date +%Y%m%d`
 
-    if [ "$bits_target" = "32" ]; then
+    if [ "$bits_target" = "32" ]
+    then
         local arch=x86
     else
         local arch=x86_64
@@ -656,7 +706,8 @@ build_ffmpeg() {
         ffinstalldir="${ffinstalldir}-vanilla"
     fi
     local ffinstallpath="${buildir}/${ffinstalldir}"
-    if [[ -d "${ffinstallpath}" ]]; then
+    if [[ -d "${ffinstallpath}" ]]
+    then
         rm -rf ${buildir}/${ffinstalldir}/*
     else
         mkdir -p "${ffinstallpath}"
@@ -667,30 +718,27 @@ build_ffmpeg() {
     then
         config_options="$config_options --enable-zlib --enable-libx264 --enable-libxvid --enable-libmp3lame --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
         config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-libgsm --enable-libfreetype"
-        # additional config options (not enabled yet)
-        # config_options="$config_options --disable-optimizations --enable-mmx --disable-postproc --enable-libflite --enable-fontconfig --enable-libass --enable-libutvideo"
         # config_options="$config_options --enable-libutvideo"
-        # disable fontconfig for now
         config_options="$config_options --enable-fontconfig --enable-libass --enable-libopus"
-     
         config_options="$config_options --enable-runtime-cpudetect"
-        if [[ "$non_free" = "y" ]]; then
+        
+        if [[ "$non_free" = "y" ]]
+        then
             config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
             # faac is less quality than dk.aac and becomes the default -- comment the build_faac line to exclude it
             config_options="$config_options --enable-libfaac"
         fi
+        
         if  $ffgnutls
         then
             config_options="$config_options --enable-gnutls "
         else
             config_options="$config_options --enable-openssl"
         fi
-        if [ "$bits_target" = "32" ]; then
-            config_options="$config_options"
-        fi
     fi
     
-    if [[ "$ffshared" = "shared" ]] ; then
+    if [[ "$ffshared" = "shared" ]]
+    then
         config_options="$config_options --disable-static --enable-shared"
     fi
     
@@ -708,7 +756,8 @@ build_ffmpeg() {
     cd ${buildir}
     #cp docs to install dir
     cp -r ${localdir}/doc ${ffinstallpath}/ 
-    if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]; then
+    if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]
+    then
         make_dir "${bz2dir}"
         echo -e "\n${INFO}Compressing to ${ffinstalldir}.tar.bz2 ${RST}\n"
         tar -cjf "${bz2dir}"/${ffinstalldir}.tar.bz2 ${ffinstalldir} && rm -rf ${ffinstalldir}/* && rmdir ${ffinstalldir}
@@ -759,7 +808,8 @@ build_all() {
         build_libopus
         build_libopenjpeg
         build_libnut
-        if [[ "$non_free" = "y" ]]; then
+        if [[ "$non_free" = "y" ]]
+        then
             build_fdk_aac
             build_faac 
         fi
@@ -767,18 +817,21 @@ build_all() {
         build_librtmp 
     fi
     
-    if $ffbuildstatic; then
+    if $ffbuildstatic
+    then
         build_ffmpeg
     fi
     
-    if $ffbuildshared; then  
+    if $ffbuildshared
+    then  
         build_ffmpeg shared
     fi
 }
 ################################################################################
 
 # Main #########################################################################
-if [[ $EUID -eq 0 ]]; then
+if [[ $EUID -eq 0 ]]
+then
     echo -e "${WARN}This script must not be run as root!\nExiting!\n${PASS}Bye ;-)${RST}" 1>&2
     exit 1
 fi
@@ -791,14 +844,16 @@ setup_env
 original_path="$PATH"
 
 # 32bit
-if [ -d "mingw-w64-i686" ] && $ff32 ; then 
+mingwdir="${buildir}/mingw-w64-i686"
+if [ -d "${mingwdir}" ] && $ff32
+then 
     echo -e "\n${PASS}Building 32-bit ffmpeg...${RST}"
     host_target='i686-w64-mingw32'
-    mingwprefix="${buildir}/mingw-w64-i686/$host_target"
-    export PATH="${buildir}/mingw-w64-i686/bin:$original_path"
-    export PKG_CONFIG_PATH="${buildir}/mingw-w64-i686/i686-w64-mingw32/lib/pkgconfig"
+    mingwprefix="${mingwdir}/${host_target}"
+    export PATH="${mingwdir}/bin:${basedir}:${original_path}"
+    export PKG_CONFIG_PATH="${mingwprefix}/lib/pkgconfig"
     bits_target=32
-    cross_prefix="${buildir}/mingw-w64-i686/bin/i686-w64-mingw32-"
+    cross_prefix="${mingwdir}/bin/i686-w64-mingw32-"
     archdir="${buildir}/win32"
     mkdir -p ${archdir}
     cd ${archdir}
@@ -811,15 +866,17 @@ else
     fi
 fi
 
-# 64bit 
-if [ -d "mingw-w64-x86_64" ] && $ff64; then 
+# 64bit
+mingwdir="${buildir}/mingw-w64-x86_64"
+if [ -d "${mingwdir}" ] && $ff64
+then 
     echo -e "\n${PASS}Building 64-bit ffmpeg...${RST}"
     host_target='x86_64-w64-mingw32'
-    mingwprefix="${buildir}/mingw-w64-x86_64/$host_target"
-    export PATH="${buildir}/mingw-w64-x86_64/bin:$original_path"
-    export PKG_CONFIG_PATH="${buildir}/mingw-w64-x86_64/x86_64-w64-mingw32/lib/pkgconfig"
+    mingwprefix="${mingwdir}/${host_target}"
+    export PATH="${mingwdir}/bin:${basedir}:${original_path}"
+    export PKG_CONFIG_PATH="${mingwprefix}/lib/pkgconfig"
     bits_target=64
-    cross_prefix="${buildir}/mingw-w64-x86_64/bin/x86_64-w64-mingw32-"
+    cross_prefix="${mingwdir}/bin/x86_64-w64-mingw32-"
     archdir="${buildir}/x86_64"
     mkdir -p ${archdir}
     cd ${archdir}
@@ -832,5 +889,8 @@ else
     fi
 fi
 
+export PATH="${original_path}"
 cd ${basedir}
 echo -e "${PASS}\nAll complete. Ending ffmpeg cross compiler script.\n${PASS}Bye. ;-) ${RST}\n "
+
+exit 0
