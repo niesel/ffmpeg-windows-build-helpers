@@ -8,8 +8,6 @@ It lets you compile a Windows version of ffmpeg/ffplay/ffprobe (including some d
 Working for 32bit and 64bit versions of ffmpeg, as static or shared build.
 
 It should work on most Linux distributions with automake and autotools installed, but it is tested on an Ubuntu 12.04 VM. 
-If you want to make shared build of ffmpeg including the MSVC import libraries, it's easier to use a 32bit OS,
-because you don't have to deal with wine prefixes. Just install wine "sudo apt-get install wine" and follow the instructions below.
 
 To run the script:
 
@@ -21,6 +19,11 @@ chmod u+x cross_compile_ffmpeg.sh
 ./cross_compile_ffmpeg.sh
 ```
 And follow the prompts.
+
+
+If you want to make shared builds of ffmpeg including the MSVC import libraries, it's easier to use a 32bit OS,
+because you don't have to deal with wine prefixes. 
+Just install wine "sudo apt-get install wine" and follow the instructions below.
 
 For the shared libraries "lib.exe" under wine is needed.
 Install it according to the explanation in the arrozcru wiki
