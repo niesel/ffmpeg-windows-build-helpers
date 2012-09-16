@@ -308,7 +308,7 @@ do_make_install() {
         make -s clean
         make $extra_make_options || exit 1
         touch already_ran_make
-        make install $extra_make_options|| exit 1
+        make install || exit 1
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
