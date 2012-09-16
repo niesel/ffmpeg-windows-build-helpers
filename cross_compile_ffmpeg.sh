@@ -35,6 +35,8 @@ ff64=false
 ffgnutls=true
 # do vanilla ffmpeg build (no external libaries)
 ffvanilla=false
+# build ffmbc
+ffmbc=false
 
 ################################################################################
 
@@ -121,6 +123,13 @@ intro() {
     else
         ffvanilla=true
     fi
+    
+    # disabled for now
+    #yes_no_sel "\n${QUES}Would you like to also build ffmbc?${RST} [y/n]?"
+    #if [[ "$user_input" = "y" ]]
+    #then 
+    #    ffmbc=true
+    #fi
     
     yes_no_sel "\n${QUES}Would you like to make a 32-bit build?${RST} [y/n]?"
     if [[ "$user_input" = "y" ]]
@@ -247,7 +256,7 @@ do_configure() {
     local touch_name=$(echo -- $configure_options | /usr/bin/env md5sum) 
     # add prefix so we can delete it easily, remove spaces
     touch_name=$(echo already_configured_$touch_name | sed "s/ //g") 
-    if [ $english_name = "ffmpeg_git" -o ! -f "$touch_name" ]
+    if [ $english_name = "ffmpeg_git" -o $english_name = "FFmbc-0.7-rc7" -o ! -f "$touch_name" ]
     then 
         # any old configuration options, since they'll be out of date after the next configure
         rm -f already*
@@ -285,7 +294,7 @@ do_make() {
         touch already_ran_make
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
-        echo -e "${INFO}Already did make  $(basename "$localdir") ${RST}\n"
+        echo -e "${PASS}Already did make  $(basename "$localdir") ${RST}\n"
     fi
 }
 
@@ -303,7 +312,7 @@ do_make_install() {
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
-        echo -e "${INFO}Already did make and install $(basename "$localdir") ${RST}\n"
+        echo -e "${PASS}Already did make and install $(basename "$localdir") ${RST}\n"
     fi
 }
 
@@ -677,6 +686,129 @@ build_faac() {
 build_lame() {
     generic_download_and_install http://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download lame-3.99.5
 }
+build_bz2() {
+    generic_download_and_install http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz  
+}
+
+build_ffmbc() {
+    local localdir="FFmbc-0.7-rc7"
+    local ffdate=`date +%Y%m%d`
+    download_and_unpack_file http://ffmbc.googlecode.com/files/FFmbc-0.7-rc7.tar.bz2 ${localdir}
+    cd ${localdir}
+    local file2patch="libavcodec/dxva2_internal.h"
+    if grep -Fxq "#include \"dxva.h\"" $file2patch
+    then
+        echo -e "${PASS}Already patched ${file2patch} ${RST}"
+    else
+        echo -e "${INFO}Patching ${file2patch} ${RST}"
+        sed -i '28 i#include \"dxva.h\"' $file2patch
+    fi
+    file2patch="libavdevice/dshow_filter.c"
+    if grep -Fxq "#define NO_DSHOW_STRSAFE" $file2patch
+    then
+        echo -e "${PASS}Already patched ${file2patch} ${RST}"
+    else
+        echo -e "${INFO}Patching ${file2patch} ${RST}"
+        sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
+    fi
+    local file2patch="libavdevice/dshow_pin.c"
+    if grep -Fxq "#define NO_DSHOW_STRSAFE" $file2patch
+    then
+        echo -e "${PASS}Already patched ${file2patch} ${RST}"
+    else
+        echo -e "${INFO}Patching ${file2patch} ${RST}"
+        sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
+    fi
+    
+    if [[ "$1" = "shared" ]]
+    then 
+        local ffshared="shared"
+    else
+        local ffshared="static"
+    fi
+    
+    if [ "$bits_target" = "32" ]
+    then
+        local arch=x86
+    else
+        local arch=x86_64
+    fi
+    local ffarch="win${bits_target}"
+    local ffinstalldir="${localdir}-${ffarch}-${ffshared}"
+    if $ffvanilla
+    then
+        ffinstalldir="${ffinstalldir}-vanilla"
+    fi
+    local ffinstallpath="${buildir}/${ffinstalldir}"
+    if [[ -d "${ffinstallpath}" ]]
+    then
+        rm -rf ${buildir}/${ffinstalldir}/*
+    else
+        mkdir -p "${ffinstallpath}"
+    fi
+    
+    config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile"
+    if ! $ffvanilla
+    then
+        config_options="$config_options --enable-zlib --enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
+        config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libopenjpeg --enable-libspeex --enable-libgsm --enable-libfreetype  --enable-libass"
+        
+        if [[ "$non_free" = "y" ]]
+        then
+            config_options="$config_options --enable-nonfree --enable-libfaac"
+        fi
+        
+        if  $ffgnutls
+        then
+            config_options="$config_options"
+        else
+            config_options="$config_options --enable-openssl"
+        fi
+    fi
+    
+    if [[ "$ffshared" = "shared" ]]
+    then
+        config_options="$config_options --disable-static --enable-shared"
+    else
+        config_options="$config_options"
+    fi
+    
+    do_configure "$config_options"
+    
+    # only build shared ffmpeg when doing vanilla build
+    if [[ "$ffshared" = "shared" ]]
+    then
+        if ! $ffvanilla
+        then
+            sed -i 's@-lz @@' libavformat/libavformat.pc
+            sed -i 's@-lz @@' libavformat/libavformat-uninstalled.pc
+        fi
+    fi
+    
+    # just in case some library dependency was updated, force it to re-link
+    rm -f *.exe 
+    
+    echo -e "\n${INFO} ffmbc: doing PATH=$PATH make${RST}\n"
+    local cpucount=`grep -c ^processor /proc/cpuinfo`
+    make clean
+    make -j${cpucount} || exit 1
+    make install && echo -e "${PASS} Successfully did make and install ${localdir} ${RST}\n"
+    
+    local localdir=$(pwd)
+    cd ${buildir}
+    #cp docs to install dir
+    cp -r ${localdir}/doc ${ffinstallpath}/ 
+    if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]
+    then
+        make_dir "${bz2dir}"
+        echo -e "${INFO} Compressing to ${ffinstalldir}.tar.bz2 ${RST}\n"
+        tar -cjf "${bz2dir}"/${ffinstalldir}.tar.bz2 ${ffinstalldir} && rm -rf ${ffinstalldir}/* && rmdir ${ffinstalldir}
+    fi 
+    
+    echo -e "${PASS} Done! You will find the bz2 packed binaries in ${bz2dir} ${RST}\n"
+    
+    cd ${archdir}
+}
 
 build_ffmpeg() {
     if [[ "$1" = "shared" ]]
@@ -726,7 +858,7 @@ build_ffmpeg() {
         if [[ "$non_free" = "y" ]]
         then
             config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
-            # faac is less quality than dk.aac and becomes the default -- comment the build_faac line to exclude it
+            # faac is less quality than fdk.aac and becomes the default -- comment the build_faac line to exclude it
             config_options="$config_options --enable-libfaac"
         fi
         
@@ -748,10 +880,11 @@ build_ffmpeg() {
     # just in case some library dependency was updated, force it to re-link
     rm -f *.exe 
     
-    echo -e "\n${INFO}ffmpeg: doing PATH=$PATH make${RST}\n"
+    echo -e "${INFO} ffmpeg: doing PATH=$PATH make${RST}\n"
     local cpucount=`grep -c ^processor /proc/cpuinfo`
+    make clean
     make -j${cpucount} || exit 1
-    make install
+    make install && echo -e "${PASS} Successfully did make and install ${localdir} ${RST}\n"
     
     local localdir=$(pwd)
     cd ${buildir}
@@ -760,11 +893,10 @@ build_ffmpeg() {
     if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]
     then
         make_dir "${bz2dir}"
-        echo -e "\n${INFO}Compressing to ${ffinstalldir}.tar.bz2 ${RST}\n"
+        echo -e "${INFO} Compressing to ${ffinstalldir}.tar.bz2 ${RST}\n"
         tar -cjf "${bz2dir}"/${ffinstalldir}.tar.bz2 ${ffinstalldir} && rm -rf ${ffinstalldir}/* && rmdir ${ffinstalldir}
     fi 
-    cd ${localdir}
-    echo -e "${PASS}\n Done! You will find the bz2 packed binaries in ${bz2dir} ${RST}\n"
+    echo -e "${PASS} Done! You will find the bz2 packed binaries in ${bz2dir} ${RST}\n"
     cd ${archdir}
 }
 
@@ -820,12 +952,20 @@ build_all() {
     
     if $ffbuildstatic
     then
-        build_ffmpeg
+        if $ffmbc
+        then
+            build_ffmbc
+        fi
+        #build_ffmpeg
     fi
     
     if $ffbuildshared
-    then  
-        build_ffmpeg shared
+    then
+        if $ffmbc
+        then
+            build_ffmbc shared
+        fi
+        #build_ffmpeg shared
     fi
 }
 ################################################################################
@@ -848,7 +988,7 @@ original_path="$PATH"
 mingwdir="${buildir}/mingw-w64-i686"
 if [ -d "${mingwdir}" ] && $ff32
 then 
-    echo -e "\n${PASS}Building 32-bit ffmpeg...${RST}"
+    echo -e "\n${PASS}===========================\nBuilding 32-bit ffmpeg...\n===========================\n${RST}"
     host_target='i686-w64-mingw32'
     mingwprefix="${mingwdir}/${host_target}"
     export PATH="${mingwdir}/bin:${basedir}:${original_path}"
@@ -871,7 +1011,7 @@ fi
 mingwdir="${buildir}/mingw-w64-x86_64"
 if [ -d "${mingwdir}" ] && $ff64
 then 
-    echo -e "\n${PASS}Building 64-bit ffmpeg...${RST}"
+    echo -e "\n${PASS}===========================\nBuilding 64-bit ffmpeg...\n===========================\n${RST}"
     host_target='x86_64-w64-mingw32'
     mingwprefix="${mingwdir}/${host_target}"
     export PATH="${mingwdir}/bin:${basedir}:${original_path}"
