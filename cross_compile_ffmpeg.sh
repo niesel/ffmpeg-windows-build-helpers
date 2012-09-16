@@ -775,16 +775,6 @@ build_ffmbc() {
     
     do_configure "$config_options"
     
-    # only build shared ffmpeg when doing vanilla build
-    if [[ "$ffshared" = "shared" ]]
-    then
-        if ! $ffvanilla
-        then
-            sed -i 's@-lz @@' libavformat/libavformat.pc
-            sed -i 's@-lz @@' libavformat/libavformat-uninstalled.pc
-        fi
-    fi
-    
     # just in case some library dependency was updated, force it to re-link
     rm -f *.exe 
     
@@ -956,16 +946,17 @@ build_all() {
         then
             build_ffmbc
         fi
-        #build_ffmpeg
+        build_ffmpeg
     fi
     
     if $ffbuildshared
     then
-        if $ffmbc
+        # only build vanilla shared libs, as others failATM
+        if $ffmbc && $ffvanilla
         then
             build_ffmbc shared
         fi
-        #build_ffmpeg shared
+        build_ffmpeg shared
     fi
 }
 ################################################################################
