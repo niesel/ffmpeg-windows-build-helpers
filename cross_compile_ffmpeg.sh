@@ -21,22 +21,34 @@
 # The GNU General Public License can be found in the LICENSE file.
 ################################################################################
 #
-#Build directory
+# Base directory
 basedir="$(pwd)"
+# Build directory
 buildir="${basedir}/build"
-#Target directory for bz2-files (if unset, no .tar.bz will be made)
+# Target directory for bz2-files (if unset, no .tar.bz will be made)
 bz2dir="${basedir}/bz2"
-#Build static and shared versions
-ffbuildstatic=false
+
+# Build static (default: true)
+ffbuildstatic=true
+# Build shared (default: false)
 ffbuildshared=false
-ff32=false
-ff64=false
-# use gnutls instead of openssl
-ffgnutls=true
-# do vanilla ffmpeg build (no external libaries)
+# make 32bit build (default: true)
+ff32=true
+# make 64bit build (default: true)
+ff64=true
+# do vanilla ffmpeg build (no external libaries) (default: true)
 ffvanilla=false
-# build ffmbc
+# bild non free libs (default: false)
+ffnonfree=false
+# build ffmpeg (default: true)
+ffmpeg=true
+# build ffmbc (default: false)
 ffmbc=false
+# use gnutls instead of openssl for librtmp (default: true)
+ffgnutls=true
+
+# Ask me questions and show the intro or run with options configured above! (default: true)
+askmequestions=true
 
 ################################################################################
 
@@ -96,7 +108,7 @@ make_dir () {
 }
 
 intro() {
-    echo -e "\n######################### Welcome ###########################"
+    echo -e "\n${PASS}============================== Welcome ==============================${RST}"
     echo -e "Welcome to the ffmpeg cross-compile builder-helper script."
     echo -e "Downloads and builds will be processed within the folder"
     echo -e "    $buildir"
@@ -109,19 +121,19 @@ intro() {
         exit 1
     fi
     
-    make_dir "${buildir}"  
-    cd "${buildir}"
-    
     yes_no_sel "\n${QUES}Build and include external libs? (libx264,librtmp,libxvid, etc) ${RST} [y/n]?"
     if [[ "$user_input" = "y" ]]
     then 
         ffvanilla=false
+        echo "true"
         echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
         echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
         yes_no_sel "${QUES}Include non-free?${RST} [y/n]?"
-        non_free="$user_input"
+        [[ "$user_input" = "y" ]] && ffnonfree=true || ffnonfree=false
+        echo $ffnonfree
     else
         ffvanilla=true
+        echo "false"
     fi
     
     # disabled for now
@@ -132,35 +144,32 @@ intro() {
     #fi
     
     yes_no_sel "\n${QUES}Would you like to make a 32-bit build?${RST} [y/n]?"
-    if [[ "$user_input" = "y" ]]
-    then 
-        ff32=true
-    fi
+    [[ "$user_input" = "y" ]] && ff32=true || ff32=false
+    echo $ff32
+
     yes_no_sel "\n${QUES}Would you like to make a 64-bit build?${RST} [y/n]?"
-    if [[ "$user_input" = "y" ]]
-    then 
-        ff64=true
-    fi
+    [[ "$user_input" = "y" ]] && ff64=true || ff64=false
+    echo $ff64
+    
     if ! $ff32 && ! $ff64
     then
-        echo -e "\n${WARN}Neither 32-bit nor 64-bit build selected!\nExiting${RST}"; exit 1
+        echo -e "\n${WARN}Neither 32-bit nor 64-bit build selected!\nExiting${RST}"
+        exit 1
     fi
     
     if $libexeok
     then
         yes_no_sel "\n${QUES}Would you like to make a static build?${RST} [y/n]?"
-        if [[ "$user_input" = "y" ]]
-        then 
-            ffbuildstatic=true
-        fi
+        [[ "$user_input" = "y" ]] && ffbuildstatic=true || ffbuildstatic=false
+        echo $ffbuildstatic
+        
         yes_no_sel "\n${QUES}Would you like to make a shared build?${RST} [y/n]?"
-        if [[ "$user_input" = "y" ]]
-        then 
-            ffbuildshared=true
-        fi
-        if ! $ffbuildstatic && ! $ffbuildshared
+        [[ "$user_input" = "y" ]] && ffbuildshared=true || ffbuildshared=false
+        echo $ffbuildshared
+        if ! $ffbuildstatic && ! $ffbuildshared 
         then
-            echo -e "\n${WARN}Neither static nor shared build selected!\nExiting${RST}"; exit 1
+            echo -e "\n${WARN}Neither static nor shared build selected!\nExiting${RST}"
+            exit 1
         fi
     else
         echo -e "\n${WARN}Wine with installed lib.exe required for shared ffmpeg builds, but it could not be found.\nCan not build shared libs!${RST}"
@@ -172,8 +181,8 @@ intro() {
 install_cross_compiler() {
     if [[ -f "mingw-w64-i686/compiler.done" || -f "mingw-w64-x86_64/compiler.done" ]]
     then
-      echo -e "\n${PASS}MinGW-w64 compiler of some type already installed, not re-installing it...${RST}"
-      return
+        echo -e "\n${PASS}MinGW-w64 compiler of some type already installed, not re-installing it...${RST}"
+        return
     fi
     echo -e "\nFirst we will download and compile a gcc cross-compiler (MinGW-w64)."
     echo -e "You will be prompted with a few questions as it installs. (it takes quite a while)"
@@ -246,10 +255,7 @@ do_git_checkout() {
 do_configure() {
     configure_options="$1"
     configure_name="$2"
-    if [[ "$configure_name" = "" ]]
-    then
-        configure_name="./configure"
-    fi
+    [[ "$configure_name" = "" ]] && configure_name="./configure"
     local localdir=$(pwd)
     local english_name=$(basename $localdir)
     # sanitize, disallow too long of length
@@ -262,13 +268,7 @@ do_configure() {
         rm -f already*
         # always distclean before configuring
         make -s distclean
-        if [ -f autogen.sh ]
-        then
-            ./autogen.sh
-        elif [ -f bootstrap.sh ]
-        then
-            ./bootstrap.sh
-        fi
+        [ -f autogen.sh ] && ./autogen.sh || [ -f bootstrap.sh ] && ./bootstrap.sh
         echo -e "${INFO}Configuring $english_name\nPATH=$PATH $configure_name $configure_options${RST}"
         "$configure_name" $configure_options || exit 1
         touch -- "$touch_name"
@@ -308,7 +308,7 @@ do_make_install() {
         make -s clean
         make $extra_make_options || exit 1
         touch already_ran_make
-        make install $extra_make_options|| exit 1
+        make install || exit 1
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
@@ -360,18 +360,12 @@ build_librtmp() {
     then
         if $ffgnutls && [ ! -f "already_gnutls" ]
         then
-            if [ -f "already_openssl" ]
-            then
-                rm "already_openssl"
-            fi
+            [ -f "already_openssl" ] && rm "already_openssl"
             make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" || exit 1
             touch already_gnutls
         elif ! $ffgnutls && [ ! -f "already_openssl" ]
         then
-            if [ -f "already_gnutls" ]
-            then
-                rm "already_gnutls"
-            fi
+            [ -f "already_gnutls" ] && rm "already_gnutls"
             make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" || exit 1
             touch already_openssl
         fi
@@ -691,36 +685,41 @@ build_bz2() {
     local localdir="bzip2-1.0.6"
     download_and_unpack_file http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz  ${localdir}
     cd ${localdir}
-    file2patch="bzip2.c"
-    if ! grep -Fxq "<sys/stat.h>" $file2patch
+    if [ -f already_ran_make ]
     then
-        echo -e "${INFO}Patching ${file2patch} ${RST}"
-        sed -i 's@sys\\stat.h@sys/stat.h@' bzip2.c $file2patch
-    else
-        echo -e "${PASS}Already patched ${file2patch} ${RST}"
-    fi
-    if [ "$bits_target" = "64" ]
-    then
-        sed -i 's@all: libbz2.a bzip2 bzip2recover test@all: libbz2.a bzip2 bzip2recover@' Makefile
-    fi
-    make clean
-    do_make "CC=$(echo $cross_prefix)gcc AR=$(echo $cross_prefix)ar RANLIB=$(echo $cross_prefix)ranlib"
-    make install "PREFIX=${mingwprefix}" && touch already_ran_make_install
-    if [ ! -f already_ran_make_install ]
-    then
-        cd "${mingwprefix}/bin"
-        mv -f bzip2 bzip2.exe
-        mv -f bunzip2 bunzip2.exe
-        mv -f bzcat bzcat.exe
-        mv -f bzip2recover bzip2recover.exe
-        cp -f bzgrep bzegrep.exe
-        cp -f bzgrep bzfgrep.exe
-        mv -f bzgrep bzgrep.exe
-        cp -f bzmore bzless.exe
-        mv -f bzmore bzmore.exe
-        cp -f bzdiff bzcmp.exe
-        mv -f bzdiff bzdiff.exe
-        rm bzcmp bzegrep bzfgrep bzless
+        file2patch="bzip2.c"
+        if grep -Fxq "sys\\stat.h" $file2patch
+        then
+            echo -e "${INFO}Patching ${file2patch} ${RST}"
+            sed -i 's@sys\\stat.h@sys/stat.h@' bzip2.c $file2patch
+        else
+            echo -e "${PASS}Already patched ${file2patch} ${RST}"
+        fi
+        if [ "$bits_target" = "64" ]
+        then
+            sed -i 's@all: libbz2.a bzip2 bzip2recover test@all: libbz2.a bzip2 bzip2recover@' Makefile
+        fi
+        make clean
+        do_make "CC=$(echo $cross_prefix)gcc AR=$(echo $cross_prefix)ar RANLIB=$(echo $cross_prefix)ranlib"
+        if [ ! -f already_ran_make_install ]
+        then
+            make install "PREFIX=${mingwprefix}"
+            touch already_ran_make_install
+            cd "${mingwprefix}/bin"
+            mv -f bzip2 bzip2.exe
+            mv -f bunzip2 bunzip2.exe
+            mv -f bzcat bzcat.exe
+            mv -f bzip2recover bzip2recover.exe
+            cp -f bzgrep bzegrep.exe
+            cp -f bzgrep bzfgrep.exe
+            mv -f bzgrep bzgrep.exe
+            cp -f bzmore bzless.exe
+            mv -f bzmore bzmore.exe
+            cp -f bzdiff bzcmp.exe
+            mv -f bzdiff bzdiff.exe
+            rm bzcmp bzegrep bzfgrep bzless
+            touch 
+        fi
     fi
     cd ${archdir}
 }
@@ -785,10 +784,10 @@ build_ffmbc() {
     config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile"
     if ! $ffvanilla
     then
-        config_options="$config_options --enable-zlib --enable-bzlib--enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
+        config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
         config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libopenjpeg --enable-libspeex --enable-libgsm --enable-libfreetype  --enable-libass"
         
-        if [[ "$non_free" = "y" ]]
+        if $ffnonfree
         then
             config_options="$config_options --enable-nonfree --enable-libfaac"
         fi
@@ -880,7 +879,7 @@ build_ffmpeg() {
         config_options="$config_options --enable-fontconfig --enable-libass --enable-libopus"
         config_options="$config_options --enable-runtime-cpudetect"
         
-        if [[ "$non_free" = "y" ]]
+        if $ffnonfree
         then
             config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
             # faac is less quality than fdk.aac and becomes the default -- comment the build_faac line to exclude it
@@ -967,10 +966,10 @@ build_all() {
         build_libopus
         build_libopenjpeg
         build_libnut
-        if [[ "$non_free" = "y" ]]
+        if [ $ffnonfree ]
         then
             build_fdk_aac
-            build_faac 
+            build_faac
         fi
         # needs openssl or gnutls
         build_librtmp 
@@ -978,11 +977,8 @@ build_all() {
     
     if $ffbuildstatic
     then
-        if $ffmbc
-        then
-            build_ffmbc
-        fi
-        build_ffmpeg
+        [ $ffmbc ] && build_ffmbc
+        [ $ffmpeg ] && build_ffmpeg
     fi
     
     if $ffbuildshared
@@ -992,19 +988,19 @@ build_all() {
         then
             build_ffmbc shared
         fi
-        build_ffmpeg shared
+        [ $ffmpeg ] && build_ffmpeg shared
     fi
 }
 ################################################################################
 
 # Main #########################################################################
-if [[ $EUID -eq 0 ]]
-then
-    echo -e "${WARN}This script must not be run as root!\nExiting!\n${PASS}Bye ;-)${RST}" 1>&2
-    exit 1
-fi
-# Remember to always run the intro, since it adjust pwd
-intro 
+
+[[ $EUID -eq 0 ]] && echo -e "${WARN}This script must not be run as root!\nExiting!\n${PASS}Bye ;-)${RST}" && exit 1
+
+[ $askmequestions ] && intro
+
+make_dir "${buildir}"  
+cd "${buildir}"
 
 # Always run this, too, since it adjust the PATH
 install_cross_compiler 
@@ -1028,10 +1024,7 @@ then
     build_all
     cd ${buildir}
 else
-    if $ff32
-    then
-        echo -e "${WARN}\nmingw-w64-i686 toolchain not present. Can not buitld 32bit ffmpeg${RST}\n "    
-    fi
+    [ $ff32 ] && echo -e "${WARN}\nmingw-w64-i686 toolchain not present. Can not buitld 32bit ffmpeg${RST}\n "    
 fi
 
 # 64bit
@@ -1051,10 +1044,7 @@ then
     build_all
     cd ${buildir}
 else
-    if $ff64
-    then
-        echo -e "${WARN}\nmingw-w64-x86_64 toolchain not present. Can not buitld 64bit ffmpeg${RST}\n "
-    fi
+    [ $ff64 ] && echo -e "${WARN}\nmingw-w64-x86_64 toolchain not present. Can not buitld 64bit ffmpeg${RST}\n "
 fi
 
 export PATH="${original_path}"
