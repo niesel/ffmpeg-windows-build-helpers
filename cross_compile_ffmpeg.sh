@@ -308,7 +308,7 @@ do_make_install() {
         make -s clean
         make $extra_make_options || exit 1
         touch already_ran_make
-        make install || exit 1
+        make install $extra_make_options|| exit 1
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
@@ -686,8 +686,43 @@ build_faac() {
 build_lame() {
     generic_download_and_install http://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download lame-3.99.5
 }
+
 build_bz2() {
-    generic_download_and_install http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz  
+    local localdir="bzip2-1.0.6"
+    download_and_unpack_file http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz  ${localdir}
+    cd ${localdir}
+    file2patch="bzip2.c"
+    if ! grep -Fxq "<sys/stat.h>" $file2patch
+    then
+        echo -e "${INFO}Patching ${file2patch} ${RST}"
+        sed -i 's@sys\\stat.h@sys/stat.h@' bzip2.c $file2patch
+    else
+        echo -e "${PASS}Already patched ${file2patch} ${RST}"
+    fi
+    if [ "$bits_target" = "64" ]
+    then
+        sed -i 's@all: libbz2.a bzip2 bzip2recover test@all: libbz2.a bzip2 bzip2recover@' Makefile
+    fi
+    make clean
+    do_make "CC=$(echo $cross_prefix)gcc AR=$(echo $cross_prefix)ar RANLIB=$(echo $cross_prefix)ranlib"
+    make install "PREFIX=${mingwprefix}" && touch already_ran_make_install
+    if [ ! -f already_ran_make_install ]
+    then
+        cd "${mingwprefix}/bin"
+        mv -f bzip2 bzip2.exe
+        mv -f bunzip2 bunzip2.exe
+        mv -f bzcat bzcat.exe
+        mv -f bzip2recover bzip2recover.exe
+        cp -f bzgrep bzegrep.exe
+        cp -f bzgrep bzfgrep.exe
+        mv -f bzgrep bzgrep.exe
+        cp -f bzmore bzless.exe
+        mv -f bzmore bzmore.exe
+        cp -f bzdiff bzcmp.exe
+        mv -f bzdiff bzdiff.exe
+        rm bzcmp bzegrep bzfgrep bzless
+    fi
+    cd ${archdir}
 }
 
 build_ffmbc() {
@@ -750,7 +785,7 @@ build_ffmbc() {
     config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile"
     if ! $ffvanilla
     then
-        config_options="$config_options --enable-zlib --enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
+        config_options="$config_options --enable-zlib --enable-bzlib--enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
         config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libopenjpeg --enable-libspeex --enable-libgsm --enable-libfreetype  --enable-libass"
         
         if [[ "$non_free" = "y" ]]
@@ -839,7 +874,7 @@ build_ffmpeg() {
     config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-version3 --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
     if ! $ffvanilla
     then
-        config_options="$config_options --enable-zlib --enable-libx264 --enable-libxvid --enable-libmp3lame --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
+        config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libxvid --enable-libmp3lame --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
         config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-libgsm --enable-libfreetype"
         # config_options="$config_options --enable-libutvideo"
         config_options="$config_options --enable-fontconfig --enable-libass --enable-libopus"
@@ -895,6 +930,7 @@ build_all() {
     then
         # rtmp depends on it [as well as ffmpeg's optional but handy --enable-zlib]
         build_zlib 
+        build_bz2
         if $gnutls
         then
             build_gmp
