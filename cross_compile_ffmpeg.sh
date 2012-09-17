@@ -29,9 +29,9 @@ buildir="${basedir}/build"
 bz2dir="${basedir}/bz2"
 
 # Build static (default: true)
-ffbuildstatic=false
+ffbuildstatic=true
 # Build shared (default: false)
-ffbuildshared=true
+ffbuildshared=false
 # make 32bit build (default: true)
 ff32=true
 # make 64bit build (default: true)
@@ -43,12 +43,13 @@ ffnonfree=true
 # build ffmpeg (default: true)
 ffmpeg=true
 # build ffmbc (default: false)
-ffmbc=true
+ffmbc=false
+
 # use gnutls instead of openssl for librtmp (default: true)
 ffgnutls=true
 
 # Ask me questions and show the intro or run with options configured above! (default: true)
-askmequestions=false
+askmequestions=true
 
 ################################################################################
 
