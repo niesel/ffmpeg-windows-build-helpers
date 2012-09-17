@@ -29,9 +29,9 @@ buildir="${basedir}/build"
 bz2dir="${basedir}/bz2"
 
 # Build static (default: true)
-ffbuildstatic=true
+ffbuildstatic=false
 # Build shared (default: false)
-ffbuildshared=false
+ffbuildshared=true
 # make 32bit build (default: true)
 ff32=true
 # make 64bit build (default: true)
@@ -39,16 +39,16 @@ ff64=true
 # do vanilla ffmpeg build (no external libaries) (default: true)
 ffvanilla=false
 # bild non free libs (default: false)
-ffnonfree=false
+ffnonfree=true
 # build ffmpeg (default: true)
 ffmpeg=true
 # build ffmbc (default: false)
-ffmbc=false
+ffmbc=true
 # use gnutls instead of openssl for librtmp (default: true)
 ffgnutls=true
 
 # Ask me questions and show the intro or run with options configured above! (default: true)
-askmequestions=true
+askmequestions=false
 
 ################################################################################
 
@@ -356,8 +356,6 @@ build_x264() {
 build_librtmp() {
     do_git_checkout "http://repo.or.cz/r/rtmpdump.git" rtmpdump_git
     cd ${archdir}/rtmpdump_git/librtmp
-    if [ ! -f "already_ran_make_install" ]
-    then
         if $ffgnutls && [ ! -f "already_gnutls" ]
         then
             [ -f "already_openssl" ] && rm "already_openssl"
@@ -371,7 +369,6 @@ build_librtmp() {
         fi
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install librtmp ${RST}\n"
-    fi
     cd ${archdir}
 }
 
@@ -781,22 +778,17 @@ build_ffmbc() {
         mkdir -p "${ffinstallpath}"
     fi
     
-    config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile"
+    config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix" 
+    config_options="$config_options --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile"
     if ! $ffvanilla
     then
-        config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
-        config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libopenjpeg --enable-libspeex --enable-libgsm --enable-libfreetype  --enable-libass"
+        config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread" 
+        config_options="$config_options --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
+        config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libopenjpeg --enable-libspeex --enable-libgsm --enable-libfreetype --enable-libass"
         
         if $ffnonfree
         then
             config_options="$config_options --enable-nonfree --enable-libfaac"
-        fi
-        
-        if  $ffgnutls
-        then
-            config_options="$config_options"
-        else
-            config_options="$config_options --enable-openssl"
         fi
     fi
     
@@ -870,14 +862,15 @@ build_ffmpeg() {
         mkdir -p "${ffinstallpath}"
     fi
     
-    config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-version3 --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
+    config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-runtime-cpudetect --enable-gpl --enable-version3 --enable-avisynth" 
+    config_options="$config_options --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
     if ! $ffvanilla
     then
-        config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libxvid --enable-libmp3lame --enable-libvo-aacenc --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
+        config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libxvid --enable-libmp3lame --enable-libvo-aacenc --enable-libvpx"
+        config_options="$config_options --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
         config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-libgsm --enable-libfreetype"
         # config_options="$config_options --enable-libutvideo"
         config_options="$config_options --enable-fontconfig --enable-libass --enable-libopus"
-        config_options="$config_options --enable-runtime-cpudetect"
         
         if $ffnonfree
         then
@@ -966,7 +959,7 @@ build_all() {
         build_libopus
         build_libopenjpeg
         build_libnut
-        if [ $ffnonfree ]
+        if $ffnonfree
         then
             build_fdk_aac
             build_faac
@@ -977,8 +970,14 @@ build_all() {
     
     if $ffbuildstatic
     then
-        [ $ffmbc ] && build_ffmbc
-        [ $ffmpeg ] && build_ffmpeg
+        if $ffmbc 
+        then
+            build_ffmbc
+        fi
+        if $ffmpeg 
+        then
+            build_ffmpeg
+        fi
     fi
     
     if $ffbuildshared
@@ -988,16 +987,25 @@ build_all() {
         then
             build_ffmbc shared
         fi
-        [ $ffmpeg ] && build_ffmpeg shared
+        if $ffmpeg 
+        then
+            build_ffmpeg shared
+        fi
     fi
 }
 ################################################################################
 
 # Main #########################################################################
 
-[[ $EUID -eq 0 ]] && echo -e "${WARN}This script must not be run as root!\nExiting!\n${PASS}Bye ;-)${RST}" && exit 1
+if [[ $EUID -eq 0 ]] 
+then
+    echo -e "${WARN}This script must not be run as root!\nExiting!\n${PASS}Bye ;-)${RST}" && exit 1
+fi
 
-[ $askmequestions ] && intro
+if $askmequestions 
+then
+    intro
+fi
 
 make_dir "${buildir}"  
 cd "${buildir}"
@@ -1024,7 +1032,10 @@ then
     build_all
     cd ${buildir}
 else
-    [ $ff32 ] && echo -e "${WARN}\nmingw-w64-i686 toolchain not present. Can not buitld 32bit ffmpeg${RST}\n "    
+    if $ff32
+    then
+        echo -e "${WARN}\nmingw-w64-i686 toolchain not present. Can not buitld 32bit ffmpeg${RST}\n "
+    fi
 fi
 
 # 64bit
@@ -1044,7 +1055,10 @@ then
     build_all
     cd ${buildir}
 else
-    [ $ff64 ] && echo -e "${WARN}\nmingw-w64-x86_64 toolchain not present. Can not buitld 64bit ffmpeg${RST}\n "
+    if $ff64
+    then
+        echo -e "${WARN}\nmingw-w64-x86_64 toolchain not present. Can not buitld 64bit ffmpeg${RST}\n "
+    fi
 fi
 
 export PATH="${original_path}"
