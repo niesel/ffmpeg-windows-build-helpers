@@ -348,6 +348,7 @@ build_x264() {
     do_git_checkout "http://repo.or.cz/r/x264.git" "x264"
     cd ${archdir}/x264
     do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --enable-win32thread"
+    do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --extra-cflags=-DPTW32_STATIC_LIB"
     # rm -f already_ran_make # just in case the git checkout did something, re-make
     do_make_install
     cd ${archdir}
@@ -603,7 +604,6 @@ build_fdk_aac() {
 build_libexpat() {
   generic_download_and_install http://sourceforge.net/projects/expat/files/expat/2.1.0/expat-2.1.0.tar.gz/download expat-2.1.0 --with-gnu-ld
 }
-
 
 build_freetype() {
     generic_download_and_install http://download.savannah.gnu.org/releases/freetype/freetype-2.4.10.tar.gz freetype-2.4.10
