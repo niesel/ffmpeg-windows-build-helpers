@@ -855,6 +855,7 @@ build_ffmpeg() {
             config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
             # faac is less quality than fdk.aac and becomes the default -- comment the build_faac line to exclude it
             if ! $fflight
+            then
                 config_options="$config_options --enable-libfaac"
             fi
         fi
