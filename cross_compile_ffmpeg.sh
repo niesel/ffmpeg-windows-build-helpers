@@ -45,7 +45,7 @@ ffmpeg=true
 # build ffmbc (default: false)
 ffmbc=false
 # build a 'light' version of ffmpeg (not all libs, personal pref)
-fflight=true
+fflight=false
 
 # Ask me questions and show the intro or run with options configured above! (default: true)
 askmequestions=true
