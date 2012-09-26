@@ -45,7 +45,7 @@ ffmpeg=true
 # build ffmbc (default: false)
 ffmbc=false
 # build a 'light' version of ffmpeg (not all libs, personal pref)
-fflight=false
+fflight=true
 
 # Ask me questions and show the intro or run with options configured above! (default: true)
 askmequestions=true
@@ -841,13 +841,14 @@ build_ffmpeg() {
     config_options="$config_options --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
     if ! $ffvanilla
     then
-        config_options="$config_options --enable-zlib --enable-bzlib --enable-libmp3lame"
+        config_options="$config_options --enable-zlib --enable-bzlib --enable-libmp3lame --enable-libopus --enable-libx264"
         config_options="$config_options --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32"
-        config_options="$config_options --enable-gnutls --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libopenjpeg"
+        config_options="$config_options --enable-libvorbis --enable-libtheora --enable-libopenjpeg"
         if ! $fflight
         then
-            config_options="$config_options --enable-libvo-aacenc --enable-libx264 --enable-libxvid --enable-libspeex --enable-libgsm --enable-libnut"
-            config_options="$config_options --enable-libfreetype --enable-fontconfig --enable-libass --enable-libopus"
+            config_options="$config_options --enable-gnutls --enable-librtmp"
+            config_options="$config_options --enable-libvo-aacenc --enable-libxvid --enable-libspeex --enable-libgsm --enable-libnut"
+            config_options="$config_options --enable-libfreetype --enable-fontconfig --enable-libass"
         fi
         
         if $ffnonfree
