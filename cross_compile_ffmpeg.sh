@@ -44,6 +44,8 @@ ffnonfree=true
 ffmpeg=true
 # build ffmbc (default: false)
 ffmbc=false
+# build a 'light' version of ffmpeg (not all libs, personal pref)
+fflight=false
 
 # Ask me questions and show the intro or run with options configured above! (default: true)
 askmequestions=true
@@ -823,6 +825,8 @@ build_ffmpeg() {
     if $ffvanilla
     then
         ffinstalldir="${ffinstalldir}-vanilla"
+    elif $fflight
+        ffinstalldir="${ffinstalldir}-light"
     fi
     local ffinstallpath="${buildir}/${ffinstalldir}"
     if [[ -d "${ffinstallpath}" ]]
@@ -836,17 +840,21 @@ build_ffmpeg() {
     config_options="$config_options --target-os=mingw32 --cross-prefix=$cross_prefix --pkg-config=pkg-config"
     if ! $ffvanilla
     then
-        config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libxvid --enable-libmp3lame --enable-libvo-aacenc --enable-libvpx"
-        config_options="$config_options --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32"
-        config_options="$config_options --enable-gnutls --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-libgsm"
-        config_options="$config_options --enable-libspeex --enable-libgsm --enable-libnut"
-        config_options="$config_options --enable-libfreetype --enable-fontconfig --enable-libass --enable-libopus"
+        config_options="$config_options --enable-zlib --enable-bzlib --enable-libmp3lame"
+        config_options="$config_options --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32"
+        config_options="$config_options --enable-gnutls --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libopenjpeg"
+        if ! $fflight
+            config_options="$config_options --enable-libvo-aacenc --enable-libx264 --enable-libxvid --enable-libspeex --enable-libgsm --enable-libnut"
+            config_options="$config_options --enable-libfreetype --enable-fontconfig --enable-libass --enable-libopus"
+        fi
         
         if $ffnonfree
         then
             config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
             # faac is less quality than fdk.aac and becomes the default -- comment the build_faac line to exclude it
-            config_options="$config_options --enable-libfaac"
+            if ! $fflight
+                config_options="$config_options --enable-libfaac"
+            fi
         fi
     fi
     
