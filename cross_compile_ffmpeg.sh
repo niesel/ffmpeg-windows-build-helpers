@@ -45,9 +45,6 @@ ffmpeg=true
 # build ffmbc (default: false)
 ffmbc=false
 
-# use gnutls instead of openssl for librtmp (default: true)
-ffgnutls=true
-
 # Ask me questions and show the intro or run with options configured above! (default: true)
 askmequestions=true
 
@@ -357,16 +354,9 @@ build_x264() {
 build_librtmp() {
     do_git_checkout "http://repo.or.cz/r/rtmpdump.git" rtmpdump_git
     cd ${archdir}/rtmpdump_git/librtmp
-        if $ffgnutls && [ ! -f "already_gnutls" ]
+        if [ ! -f "already_gnutls" ]
         then
-            [ -f "already_openssl" ] && rm "already_openssl"
-            make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" || exit 1
-            touch already_gnutls
-        elif ! $ffgnutls && [ ! -f "already_openssl" ]
-        then
-            [ -f "already_gnutls" ] && rm "already_gnutls"
-            make install OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" || exit 1
-            touch already_openssl
+            make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" && touch already_gnutls || exit 1
         fi
         touch already_ran_make_install
         echo -e "${PASS}Successfully did make and install librtmp ${RST}\n"
@@ -566,27 +556,6 @@ build_fontconfig() {
     rm "${basedir}/lib"
     cd ${archdir}
     sed -i 's/-L${libdir} -lfontconfig[^l]*$/-L${libdir} -lfontconfig -lfreetype -lexpat/' "$PKG_CONFIG_PATH/fontconfig.pc"
-}
-
-build_openssl() {
-    download_and_unpack_file http://www.openssl.org/source/openssl-1.0.1c.tar.gz openssl-1.0.1c
-    cd ${archdir}/openssl-1.0.1c
-    export cross="$cross_prefix"
-    export CC="${cross}gcc"
-    export AR="${cross}ar"
-    export RANLIB="${cross}ranlib"
-    if [ "$bits_target" = "32" ]
-    then
-        do_configure "--prefix=$mingwprefix no-shared mingw" ./Configure
-    else
-        do_configure "--prefix=$mingwprefix no-shared mingw64" ./Configure
-    fi
-    do_make_install
-    unset cross
-    unset CC
-    unset AR
-    unset RANLIB
-    cd ${archdir}
 }
 
 build_libnut() {
@@ -868,23 +837,16 @@ build_ffmpeg() {
     if ! $ffvanilla
     then
         config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libxvid --enable-libmp3lame --enable-libvo-aacenc --enable-libvpx"
-        config_options="$config_options --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32 --enable-libnut"
-        config_options="$config_options --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-libgsm --enable-libfreetype"
-        # config_options="$config_options --enable-libutvideo"
-        config_options="$config_options --enable-fontconfig --enable-libass --enable-libopus"
+        config_options="$config_options --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32"
+        config_options="$config_options --enable-gnutls --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libspeex --enable-libopenjpeg --enable-libgsm"
+        config_options="$config_options --enable-libspeex --enable-libgsm --enable-libnut"
+        config_options="$config_options --enable-libfreetype --enable-fontconfig --enable-libass --enable-libopus"
         
         if $ffnonfree
         then
             config_options="$config_options --enable-nonfree --enable-libfdk-aac" 
             # faac is less quality than fdk.aac and becomes the default -- comment the build_faac line to exclude it
             config_options="$config_options --enable-libfaac"
-        fi
-        
-        if  $ffgnutls
-        then
-            config_options="$config_options --enable-gnutls "
-        else
-            config_options="$config_options --enable-openssl"
         fi
     fi
     
@@ -924,16 +886,11 @@ build_all() {
         # rtmp depends on it [as well as ffmpeg's optional but handy --enable-zlib]
         build_zlib 
         build_bz2
-        if $gnutls
-        then
-            build_gmp
-            # needs gmp
-            build_libnettle 
-            # needs libnettle
-            build_gnutls
-        else
-            build_openssl
-        fi
+        build_gmp
+        # needs gmp
+        build_libnettle 
+        # needs libnettle
+        build_gnutls
         build_libgsm
         # needed for ffplay to be created
         build_sdl 
@@ -965,7 +922,7 @@ build_all() {
             build_fdk_aac
             build_faac
         fi
-        # needs openssl or gnutls
+        # needs gnutls
         build_librtmp 
     fi
     
