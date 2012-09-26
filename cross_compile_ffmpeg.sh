@@ -347,7 +347,7 @@ generic_download_and_install() {
 build_x264() {
     do_git_checkout "http://repo.or.cz/r/x264.git" "x264"
     cd ${archdir}/x264
-    do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --enable-win32thread"
+    #do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --enable-win32thread"
     do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --extra-cflags=-DPTW32_STATIC_LIB"
     # rm -f already_ran_make # just in case the git checkout did something, re-make
     do_make_install
