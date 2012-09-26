@@ -284,7 +284,7 @@ generic_configure() {
 }
 
 do_make() {
-    extra_make_options="$*"
+    local extra_make_options="$*"
     local localdir=$(pwd)
     if [ ! -f already_ran_make ]
     then
@@ -300,13 +300,13 @@ do_make() {
 
 
 do_make_install() {
-    extra_make_options="$*"
+    local extra_make_options="$*"
     local localdir=$(pwd)
     if [ ! -f already_ran_make ]
     then
         echo -e "${INFO}Making ${localdir} as:\n PATH=$PATH make ${extra_make_options} ${RST}"
         make -s clean
-        make $extra_make_options || exit 1
+        make "{$extra_make_options}" || exit 1
         touch already_ran_make
         make install || exit 1
         touch already_ran_make_install
@@ -613,6 +613,15 @@ build_vo_aacenc() {
     generic_download_and_install http://sourceforge.net/projects/opencore-amr/files/vo-aacenc/vo-aacenc-0.1.2.tar.gz/download vo-aacenc-0.1.2
 }
 
+build_win32_pthreads() {
+    download_and_unpack_file ftp://sourceware.org/pub/pthreads-win32/pthreads-w32-2-9-1-release.tar.gz   pthreads-w32-2-9-1-release
+    cd pthreads-w32-2-9-1-release
+    do_make "clean GC-static CROSS=$cross_prefix"
+    cp libpthreadGC2.a $mingwprefix/lib/libpthread.a || exit 1
+    cp pthread.h $mingwprefix/include || exit 1
+    cd ${archdir}
+}
+
 build_sdl() {
     # apparently ffmpeg expects prefix-sdl-config not sdl-config that they give us, so rename...
     #-DDECLSPEC is needed for shared build
@@ -843,7 +852,7 @@ build_ffmpeg() {
     then
         config_options="$config_options --enable-zlib --enable-bzlib --enable-libmp3lame --enable-libopus --enable-libx264"
         config_options="$config_options --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32"
-        config_options="$config_options --enable-libvorbis --enable-libtheora --enable-libopenjpeg"
+        config_options="$config_options --disable-w32threads --extra-cflags=-DPTW32_STATIC_LIB --enable-libvorbis --enable-libtheora --enable-libopenjpeg"
         if ! $fflight
         then
             config_options="$config_options --enable-gnutls --enable-librtmp"
@@ -895,6 +904,7 @@ build_ffmpeg() {
 build_all() {
     if ! $ffvanilla
     then
+        build_win32_pthreads
         # rtmp depends on it [as well as ffmpeg's optional but handy --enable-zlib]
         build_zlib 
         build_bz2
