@@ -826,6 +826,7 @@ build_ffmpeg() {
     then
         ffinstalldir="${ffinstalldir}-vanilla"
     elif $fflight
+    then
         ffinstalldir="${ffinstalldir}-light"
     fi
     local ffinstallpath="${buildir}/${ffinstalldir}"
@@ -844,6 +845,7 @@ build_ffmpeg() {
         config_options="$config_options --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread --extra-libs=-lwinmm --extra-libs=-lgdi32"
         config_options="$config_options --enable-gnutls --enable-librtmp --enable-libvorbis --enable-libtheora --enable-libopenjpeg"
         if ! $fflight
+        then
             config_options="$config_options --enable-libvo-aacenc --enable-libx264 --enable-libxvid --enable-libspeex --enable-libgsm --enable-libnut"
             config_options="$config_options --enable-libfreetype --enable-fontconfig --enable-libass --enable-libopus"
         fi
