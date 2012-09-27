@@ -289,7 +289,7 @@ do_make() {
     if [ ! -f already_ran_make ]
     then
         echo -e "${INFO}Making ${localdir} as:\nPATH=$PATH make ${extra_make_options} ${RST}"
-        make -s clean
+        #make -s clean
         make $extra_make_options || exit 1
         touch already_ran_make
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
@@ -306,7 +306,7 @@ do_make_install() {
     then
         echo -e "${INFO}Making ${localdir} as:\n PATH=$PATH make ${extra_make_options} ${RST}"
         make -s clean
-        make "{$extra_make_options}" || exit 1
+        make $extra_make_options || exit 1
         touch already_ran_make
         make install || exit 1
         touch already_ran_make_install
@@ -345,7 +345,7 @@ generic_download_and_install() {
 }
 
 build_x264() {
-    do_git_checkout "http://repo.or.cz/r/x264.git" "x264"
+    do_git_checkout "http://repo.or.cz/r/x264.git" x264
     cd ${archdir}/x264
     #do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --enable-win32thread"
     do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --extra-cflags=-DPTW32_STATIC_LIB"
@@ -614,8 +614,9 @@ build_vo_aacenc() {
 }
 
 build_win32_pthreads() {
-    download_and_unpack_file ftp://sourceware.org/pub/pthreads-win32/pthreads-w32-2-9-1-release.tar.gz   pthreads-w32-2-9-1-release
-    cd pthreads-w32-2-9-1-release
+    local localdir="pthreads-w32-2-9-1-release"
+    download_and_unpack_file ftp://sourceware.org/pub/pthreads-win32/pthreads-w32-2-9-1-release.tar.gz ${localdir}   
+    cd ${localdir}
     do_make "clean GC-static CROSS=$cross_prefix"
     cp libpthreadGC2.a $mingwprefix/lib/libpthread.a || exit 1
     cp pthread.h $mingwprefix/include || exit 1
@@ -653,6 +654,7 @@ build_libopus() {
 
 build_faac() {
     generic_download_and_install http://downloads.sourceforge.net/faac/faac-1.28.tar.gz faac-1.28 "--with-mp4v2=no"
+    # sed -i -e "s|^char \*strcasestr.*|//\0|" common/mp4v2/mpeg4ip.h
 }
 
 build_lame() {
