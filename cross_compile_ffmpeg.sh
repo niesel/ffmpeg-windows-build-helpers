@@ -28,6 +28,10 @@ buildir="${basedir}/build"
 # Target directory for bz2-files (if unset, no .tar.bz will be made)
 bz2dir="${basedir}/bz2"
 
+# Build from git master (true) or from release/x.xx (default: true)
+ffgitmaster=true
+# Which release No. should we build? 
+ffreleaseversion="1.0"
 # Build static (default: true)
 ffbuildstatic=true
 # Build shared (default: false)
@@ -44,10 +48,9 @@ ffnonfree=true
 ffmpeg=true
 # build ffmbc (default: false)
 ffmbc=false
-# build a 'light' version of ffmpeg (not all libs, personal pref)
+# build a 'light' version of ffmpeg (not all libs, personal prefs) (default: false)
 fflight=false
-
-# Ask me questions and show the intro or run with options configured above! (default: true)
+# Ask me questions and show the intro or run only with options configured above! (default: true)
 askmequestions=true
 
 ################################################################################
@@ -225,8 +228,9 @@ do_svn_checkout() {
 }
 
 do_git_checkout() {
-    repo_url="$1"
-    to_dir="$2"
+    local repo_url="$1"
+    local to_dir="$2"
+    cd ${archdir}
     if [ ! -d $to_dir ]
     then
         echo -e "${INFO}Downloading (via git clone) $to_dir ${RST}"
@@ -653,8 +657,14 @@ build_libopus() {
 }
 
 build_faac() {
-    generic_download_and_install http://downloads.sourceforge.net/faac/faac-1.28.tar.gz faac-1.28 "--with-mp4v2=no"
-    # sed -i -e "s|^char \*strcasestr.*|//\0|" common/mp4v2/mpeg4ip.h
+    local localdir="faac-1.28"
+    generic_download_and_install http://downloads.sourceforge.net/faac/faac-1.28.tar.gz ${localdir} "--with-mp4v2=no"
+    #download_and_unpack_file http://downloads.sourceforge.net/faac/faac-1.28.tar.gz ${localdir}
+    #cd ${archdir}/${localdir}
+    #sed -i -e "s|^char \*strcasestr.*|//\0|" common/mp4v2/mpeg4ip.h
+    #generic_configure
+    #do_make_install
+    cd ${archdir}
 }
 
 build_lame() {
@@ -816,15 +826,6 @@ build_ffmpeg() {
     else
         local ffshared="static"
     fi
-
-    gitdir="ffmpeg_git"
-    do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}
-    cd ${gitdir}
-      
-    local ffgit=`git rev-parse --short HEAD` && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
-    local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS} ffmpeg rev.: ${ffgitrev}${RST}\n" 
-    local ffdate=`date +%Y%m%d`
-
     if [ "$bits_target" = "32" ]
     then
         local arch=x86
@@ -832,7 +833,28 @@ build_ffmpeg() {
         local arch=x86_64
     fi
     local ffarch="win${bits_target}"
-    local ffinstalldir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
+    local ffdate=`date +%Y%m%d` 
+    local gitdir="ffmpeg_git"
+    local localdir="ffmpeg-${ffreleaseversion}"
+    cd ${gitdir}   
+    if $ffgitmaster
+    then
+        git checkout master
+        do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}  
+        cd ${gitdir}      
+        local ffgit=`git rev-parse --short HEAD` && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
+        local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS} ffmpeg rev.: ${ffgitrev}${RST}\n" 
+        local ffinstalldir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
+    else
+        git checkout release/${ffreleaseversion}
+        do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}
+        cd ${gitdir}  
+        local ffgit=`git rev-parse --short HEAD` && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
+        local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS}ffmpeg rev.: ${ffgitrev}${RST}\n"
+        #download_and_unpack_file  http://ffmpeg.org/releases/ffmpeg-1.0.tar.gz ffmpeg-1.0 ${localdir}
+        #cd ${localdir}
+        local ffinstalldir="${localdir}-${ffdate}-${ffarch}-${ffshared}"
+    fi
     if $ffvanilla
     then
         ffinstalldir="${ffinstalldir}-vanilla"
