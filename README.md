@@ -19,7 +19,7 @@ chmod u+x cross_compile_ffmpeg.sh
 ./cross_compile_ffmpeg.sh
 ```
 And follow the prompts.
-
+It works with 32 or 64 bit Linux.
 
 If you want to make shared builds of ffmpeg including the MSVC import libraries, it's easier to use a 32bit OS,
 because you don't have to deal with wine prefixes. 
@@ -54,5 +54,4 @@ sudo chmod +x /usr/local/bin/lib.exe
 Now when you build FFmpeg with --enable-shared, you should have Visual Studio import libraries.
 
 Enjoy!
-
 
