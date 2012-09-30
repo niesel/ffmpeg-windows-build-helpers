@@ -110,27 +110,27 @@ yes_no_sel () {
 }
 
 intro() {
-    echo -e "\n${PASS}============================== Welcome ==============================${RST}"
-    echo -e "Welcome to the ffmpeg cross-compile builder-helper script."
-    echo -e "Downloads and builds will be processed within the folder"
-    echo -e "    $buildir"
-    echo -e "If this is not ok, then exit now, and cd to the directory where"
-    echo -e "you would like them installed, then run this script again."
-
-    yes_no_sel "${QUES}Is ${buildir} ok? ${RST}[y/n]?"
+    echo -e "\n${PASS} #####################################################################${RST}"
+    echo -e "${PASS} ##    ${INFO}Welcome to the ffmpeg cross-compile builder-helper script.   ${PASS}##${RST}"
+    echo -e "${PASS} #####################################################################${RST}\n"       
+    echo -e " Downloads and builds will be processed within the folder          "
+    echo -e " ${INFO}$buildir${RST}"
+    echo -e " If this is not ok, then exit now, and cd to the directory where   "
+    echo -e " you would like to to the build. Afterwards run this script again.  "
+    yes_no_sel " ${QUES}Is ${buildir} ok? ${RST}[y/n]?"
     if [[ "${user_input}" = "n" ]]
     then
         exit 1
     fi
-    
-    yes_no_sel "\n${QUES}Build and include external libs? (libx264,librtmp,libxvid, etc) ${RST} [y/n]?"
+    echo -e "\n Would you like to include external libraries, like libx264, librtmp, libopus, libxvid or liblame?"
+    yes_no_sel " ${QUES}Build and include external libs? ${RST} [y/n]?"
     if [[ "$user_input" = "y" ]]
     then 
         ffvanilla=false
         echo "true"
-        echo -e "\nWould you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
-        echo -e "The resultant binary will not be distributable, but might be useful for in-house use."
-        yes_no_sel "${QUES}Include non-free?${RST} [y/n]?"
+        echo -e "\n Would you like to include non-free (non GPL compatible) libraries, like certain high quality aac encoders?"
+        echo -e " The resultant binary will not be distributable, but might be useful for in-house use."
+        yes_no_sel " ${QUES}Include non-free?${RST} [y/n]?"
         [[ "$user_input" = "y" ]] && ffnonfree=true || ffnonfree=false
         echo $ffnonfree
     else
@@ -145,37 +145,37 @@ intro() {
     #    ffmbc=true
     #fi
     
-    yes_no_sel "\n${QUES}Would you like to make a 32-bit build?${RST} [y/n]?"
+    yes_no_sel "\n${QUES} Would you like to make a 32-bit build?${RST} [y/n]?"
     [[ "$user_input" = "y" ]] && ff32=true || ff32=false
     echo $ff32
 
-    yes_no_sel "\n${QUES}Would you like to make a 64-bit build?${RST} [y/n]?"
+    yes_no_sel "\n${QUES} Would you like to make a 64-bit build?${RST} [y/n]?"
     [[ "$user_input" = "y" ]] && ff64=true || ff64=false
     echo $ff64
     
     if ! $ff32 && ! $ff64
     then
-        echo -e "\n${WARN}Neither 32-bit nor 64-bit build selected!\nExiting${RST}"
+        echo -e "\n${WARN} Neither 32-bit nor 64-bit build selected!\nExiting${RST}"
         exit 1
     fi
     
     if $libexeok
     then
-        yes_no_sel "\n${QUES}Would you like to make a static build?${RST} [y/n]?"
+        yes_no_sel "\n${QUES} Would you like to make a static build?${RST} [y/n]?"
         [[ "$user_input" = "y" ]] && ffbuildstatic=true || ffbuildstatic=false
         echo $ffbuildstatic
         
-        yes_no_sel "\n${QUES}Would you like to make a shared build?${RST} [y/n]?"
+        yes_no_sel "\n${QUES} Would you like to make a shared build?${RST} [y/n]?"
         [[ "$user_input" = "y" ]] && ffbuildshared=true || ffbuildshared=false
         echo $ffbuildshared
         if ! $ffbuildstatic && ! $ffbuildshared 
         then
-            echo -e "\n${WARN}Neither static nor shared build selected!\nExiting${RST}"
+            echo -e "\n${WARN} Neither static nor shared build selected!\nExiting${RST}"
             exit 1
         fi
     else
-        echo -e "\n${WARN}Wine with installed lib.exe required for shared ffmpeg builds, but it could not be found.\nCan not build shared libs!${RST}"
-        echo -e "\n${INFO}Only static builds will be done!${RST}"
+        echo -e "\n${WARN} Wine with installed lib.exe required for shared ffmpeg builds, but it could not be found.\nCan not build shared libs!${RST}"
+        echo -e "\n${INFO} Only static builds will be done!${RST}"
         ffbuildstatic=true
     fi
 }
@@ -1014,13 +1014,14 @@ build_all() {
         fi
     fi
 }
-################################################################################
 
+################################################################################
 # Main #########################################################################
+################################################################################
 
 if [[ $EUID -eq 0 ]] 
 then
-    echo -e "${WARN}This script must not be run as root!\nExiting!\n${PASS}Bye ;-)${RST}" && exit 1
+    echo -e "${WARN} This script must not be run as root!\n Exiting!\n${PASS} Bye ;-)${RST}" && exit 1
 fi
 
 if $askmequestions 
@@ -1040,7 +1041,7 @@ original_path="$PATH"
 mingwdir="${buildir}/mingw-w64-i686"
 if [ -d "${mingwdir}" ] && $ff32
 then 
-    echo -e "\n${PASS}===========================\nBuilding 32-bit ffmpeg...\n===========================\n${RST}"
+    echo -e "\n${PASS} ===========================\n Building 32-bit ffmpeg...\n ===========================\n${RST}"
     host_target='i686-w64-mingw32'
     mingwprefix="${mingwdir}/${host_target}"
     export PATH="${mingwdir}/bin:${basedir}:${original_path}"
@@ -1052,18 +1053,16 @@ then
     cd ${archdir}
     build_all
     cd ${buildir}
-else
-    if $ff32
-    then
-        echo -e "${WARN}\nmingw-w64-i686 toolchain not present. Can not buitld 32bit ffmpeg${RST}\n "
-    fi
+elif $ff32
+then
+    echo -e "${WARN}\n mingw-w64-i686 toolchain not present. Can not buitld 32bit ffmpeg${RST}\n "
 fi
 
 # 64bit
 mingwdir="${buildir}/mingw-w64-x86_64"
 if [ -d "${mingwdir}" ] && $ff64
 then 
-    echo -e "\n${PASS}===========================\nBuilding 64-bit ffmpeg...\n===========================\n${RST}"
+    echo -e "\n${PASS} ===========================\n Building 64-bit ffmpeg...\n ===========================\n${RST}"
     host_target='x86_64-w64-mingw32'
     mingwprefix="${mingwdir}/${host_target}"
     export PATH="${mingwdir}/bin:${basedir}:${original_path}"
@@ -1075,15 +1074,16 @@ then
     cd ${archdir}
     build_all
     cd ${buildir}
-else
-    if $ff64
-    then
-        echo -e "${WARN}\nmingw-w64-x86_64 toolchain not present. Can not buitld 64bit ffmpeg${RST}\n "
-    fi
+elif $ff64
+then
+    echo -e "${WARN}\n mingw-w64-x86_64 toolchain not present. Can not buitld 64bit ffmpeg${RST}\n "
 fi
 
 export PATH="${original_path}"
 cd ${basedir}
-echo -e "${PASS}\nAll complete. Ending ffmpeg cross compiler script.\n${PASS}Bye. ;-) ${RST}\n "
+echo -e "${PASS}\n All complete. Ending ffmpeg cross compiler script.\n${PASS} Bye. ;-) ${RST}\n "
 
 exit 0
+
+################################################################################
+################################################################################
