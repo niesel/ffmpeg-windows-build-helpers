@@ -194,7 +194,7 @@ install_cross_compiler() {
 
     wget http://zeranoe.com/scripts/mingw_w64_build/mingw-w64-build-3.0.6 -O mingw-w64-build-3.0.6
     chmod u+x mingw-w64-build-3.0.6
-    ./mingw-w64-build-3.0.6 --disable-nls --disable-shared --default-configure --clean-build || exit 1
+    ./mingw-w64-build-3.0.6 --mingw-w64-ver=2.0.4 --disable-nls --disable-shared --default-configure --clean-build || exit 1
     if [ -d mingw-w64-x86_64 ]
     then
         touch mingw-w64-x86_64/compiler.done
@@ -204,6 +204,7 @@ install_cross_compiler() {
         touch mingw-w64-i686/compiler.done
     fi
     echo -e "${PASS}OK, done building MinGW-w64 cross-compiler...${RST}\n"
+
 }
 
 setup_env() {
@@ -391,6 +392,7 @@ build_utvideo() {
         echo -e "${PASS}Successfully did make and install ${localdir} ${RST}\n"
     fi
     cd ${archdir}
+
 }
 
 build_libopenjpeg() {
@@ -448,6 +450,19 @@ build_libgsm() {
         cp inc/gsm.h $mingwprefix/include/gsm || exit 1
     fi
     cd ${archdir}
+}
+
+build_libopus() {
+  generic_download_and_install http://downloads.xiph.org/releases/opus/opus-1.0.1.tar.gz opus-1.0.1 
+}
+
+build_win32_pthreads() {
+  download_and_unpack_file ftp://sourceware.org/pub/pthreads-win32/pthreads-w32-2-9-1-release.tar.gz   pthreads-w32-2-9-1-release
+  cd pthreads-w32-2-9-1-release
+    do_make "clean GC-static CROSS=$cross_prefix"
+    cp libpthreadGC2.a $mingw_w64_x86_64_prefix/lib/libpthread.a || exit 1
+    cp pthread.h $mingw_w64_x86_64_prefix/include || exit 1
+  cd ..
 }
 
 build_libogg() {
@@ -511,7 +526,12 @@ build_gmp() {
 }
 
 build_gnutls() {
-    generic_download_and_install ftp://ftp.gnu.org/gnu/gnutls/gnutls-3.0.22.tar.xz gnutls-3.0.22
+    local localdir="gnutls-3.0.22"
+    generic_download_and_install ftp://ftp.gnu.org/gnu/gnutls/gnutls-3.0.22.tar.xz ${localdir}
+    # download_and_unpack_file ftp://ftp.gnu.org/gnu/gnutls/gnutls-3.0.22.tar.xz ${localdir}
+    # cd ${localdir}
+    # generic_configure "--disable-cxx" # don't need the c++ version, in an effort to cut down on size.
+    # do_make_install
     sed -i 's/-lgnutls *$/-lgnutls -lnettle -lhogweed -lgmp -lcrypt32/' "$PKG_CONFIG_PATH/gnutls.pc"
     cd ${archdir}
 }
