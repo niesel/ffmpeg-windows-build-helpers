@@ -931,7 +931,7 @@ build_ffmpeg() {
     local localdir=$(pwd)
     cd ${buildir}
     #cp docs to install dir
-    cp -r ${archdir}/${localdir}/doc ${ffinstallpath}/ 
+    cp -r ${localdir}/doc ${ffinstallpath}/ 
     if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]
     then
         make_dir "${bz2dir}"
