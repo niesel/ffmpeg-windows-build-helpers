@@ -72,24 +72,6 @@ RST='\e[0m'       # Text reset
 # Functions ####################################################################
 
 
-
-yes_no_sel () {
-    unset user_input
-    local question="$1"
-    shift
-    while [[ "$user_input" != [YyNn] ]]
-    do
-        echo -e "$question \c"
-        read user_input
-        if [[ "$user_input" != [YyNn] ]]
-        then
-            echo -e "\n${WARN}Your selection was not vaild, please try again.\n${RST}"
-        fi
-    done
-    # downcase it
-    user_input=$(echo $user_input | tr '[A-Z]' '[a-z]')
-}
-
 make_dir () {
     if [[ ! -d "$*" ]]
     then
@@ -108,6 +90,23 @@ make_dir () {
             echo -e "\n${PASS} Directory $* already exists and is writeable. ${RST}"
         fi
     fi
+}
+
+yes_no_sel () {
+    unset user_input
+    local question="$1"
+    shift
+    while [[ "$user_input" != [YyNn] ]]
+    do
+        echo -e "$question \c"
+        read user_input
+        if [[ "$user_input" != [YyNn] ]]
+        then
+            echo -e "\n${WARN}Your selection was not vaild, please try again.\n${RST}"
+        fi
+    done
+    # downcase it
+    user_input=$(echo $user_input | tr '[A-Z]' '[a-z]')
 }
 
 intro() {
@@ -204,7 +203,6 @@ install_cross_compiler() {
         touch mingw-w64-i686/compiler.done
     fi
     echo -e "${PASS}OK, done building MinGW-w64 cross-compiler...${RST}\n"
-
 }
 
 setup_env() {
@@ -303,7 +301,6 @@ do_make() {
     fi
 }
 
-
 do_make_install() {
     local extra_make_options="$*"
     local localdir=$(pwd)
@@ -337,7 +334,6 @@ download_and_unpack_file() {
     fi
 }
 
-# needs 2 parameters currently
 generic_download_and_install() {
     local url="$1"
     local english_name="$2" 
@@ -350,8 +346,9 @@ generic_download_and_install() {
 }
 
 build_x264() {
-    do_git_checkout "http://repo.or.cz/r/x264.git" x264
-    cd ${archdir}/x264
+    local localdir="x264"
+    do_git_checkout "http://repo.or.cz/r/x264.git" ${localdir}
+    cd ${archdir}/${localdir}
     #do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --enable-win32thread"
     do_configure "--host=$host_target --enable-static --cross-prefix=$cross_prefix --prefix=$mingwprefix --extra-cflags=-DPTW32_STATIC_LIB"
     # rm -f already_ran_make # just in case the git checkout did something, re-make
@@ -360,8 +357,9 @@ build_x264() {
 }
 
 build_librtmp() {
-    do_git_checkout "http://repo.or.cz/r/rtmpdump.git" rtmpdump_git
-    cd ${archdir}/rtmpdump_git/librtmp
+    local localdir="rtmpdump_git"
+    do_git_checkout "http://repo.or.cz/r/rtmpdump.git" ${localdir}
+    cd ${archdir}/${localdir}/librtmp
         if [ ! -f "already_gnutls" ]
         then
             make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" && touch already_gnutls || exit 1
@@ -371,11 +369,37 @@ build_librtmp() {
     cd ${archdir}
 }
 
+build_libopenjpeg() {
+    local localdir="openjpeg_v1_4_sources_r697"
+    download_and_unpack_file http://openjpeg.googlecode.com/files/openjpeg_v1_4_sources_r697.tgz ${localdir}
+    cd ${archdir}/${localdir}
+    generic_configure
+    # install pkg_config to the right dir...
+    sed -i "s/\/usr\/lib/\$\(libdir\)/" Makefile 
+    do_make_install
+    cd ${archdir} 
+}
+
+build_libvpx() {
+    local localdir="libvpx-v1.1.0"
+    download_and_unpack_file http://webm.googlecode.com/files/libvpx-v1.1.0.tar.bz2 ${localdir}
+    cd ${archdir}/${localdir}
+    export CROSS="$cross_prefix"
+    if [[ "$bits_target" = "32" ]]
+    then
+        do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
+    else
+        do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
+    fi
+    do_make_install "extralibs='-lpthread'"
+    cd ${archdir}
+}
+
 build_utvideo() {
     # shared ffmpeg will not build with utvideo
     local localdir="utvideo-11.1.0"
     download_and_unpack_file https://github.com/downloads/rdp/FFmpeg/utvideo-11.1.0-src.zip ${localdir}
-    cd ${localdir}
+    cd ${archdir}/${localdir}
     if [ ! -f "already_ran_make_install" ]
     then
         local file2patch="utv_core/Codec.h"
@@ -392,55 +416,32 @@ build_utvideo() {
         echo -e "${PASS}Successfully did make and install ${localdir} ${RST}\n"
     fi
     cd ${archdir}
-
-}
-
-build_libopenjpeg() {
-    download_and_unpack_file http://openjpeg.googlecode.com/files/openjpeg_v1_4_sources_r697.tgz openjpeg_v1_4_sources_r697
-    cd ${archdir}/openjpeg_v1_4_sources_r697
-    generic_configure
-    # install pkg_config to the right dir...
-    sed -i "s/\/usr\/lib/\$\(libdir\)/" Makefile 
-    do_make_install
-    cd ${archdir} 
-}
-
-build_libvpx() {
-    download_and_unpack_file http://webm.googlecode.com/files/libvpx-v1.1.0.tar.bz2 libvpx-v1.1.0
-    cd ${archdir}/libvpx-v1.1.0
-    export CROSS="$cross_prefix"
-    if [[ "$bits_target" = "32" ]]
-    then
-        do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
-    else
-        do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
-    fi
-    do_make_install "extralibs='-lpthread'"
-    cd ${archdir}
 }
 
 build_libflite() {
+    local localdir="flite-1.4-release"
     # There's still a problem with 64 bits builds of ffmpeg
-    download_and_unpack_file http://www.speech.cs.cmu.edu/flite/packed/flite-1.4/flite-1.4-release.tar.bz2 flite-1.4-release
-    cd flite-1.4-release
+    download_and_unpack_file http://www.speech.cs.cmu.edu/flite/packed/flite-1.4/flite-1.4-release.tar.bz2 ${localdir}
+    cd ${archdir}/${localdir}
     sed -i "s|i386-mingw32-|$cross_prefix|" configure*
     generic_configure
     do_make
     make install # it fails in error...
     if [[ "$bits_target" = "32" ]]
     then
-        cp ./build/i386-mingw32/lib/*.a $mingwprefix/lib || exit 1
+        cp ${basedir}/build/i386-mingw32/lib/*.a $mingwprefix/lib || exit 1
     else
-        cp ./build/x68_64-mingw32/lib/*.a $mingwprefix/lib || exit 1
+        cp ${basedir}/build/x68_64-mingw32/lib/*.a $mingwprefix/lib || exit 1
     fi
     cd ${archdir}
 }
 
 build_libgsm() {
-    download_and_unpack_file http://www.quut.com/gsm/gsm-1.0.13.tar.gz gsm-1.0-pl13
+    local localdir="gsm-1.0-pl13"
+    download_and_unpack_file http://www.quut.com/gsm/gsm-1.0.13.tar.gz ${localdir}
     if [[ ! -f $mingwprefix/include/gsm/gsm.h  || ! -f $mingwprefix/lib/libgsm.a ]]
     then
-        cd ${archdir}/gsm-1.0-pl13
+        cd ${archdir}/${localdir}
         # not really needed, but who wants toast gets toast ;-)
         sed -i -e '/HAS_FCHMOD/,+14d' src/toast.c
         sed -i -e '/HAS_FCHOWN/,+6d' src/toast.c
@@ -453,16 +454,22 @@ build_libgsm() {
 }
 
 build_libopus() {
-  generic_download_and_install http://downloads.xiph.org/releases/opus/opus-1.0.1.tar.gz opus-1.0.1 
+    local localdir="libopus"
+    do_git_checkout git://git.opus-codec.org/opus.git ${localdir}
+    cd ${archdir}/${localdir}
+    do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingwprefix"
+    do_make_install
+    cd ${archdir}
 }
 
 build_win32_pthreads() {
-  download_and_unpack_file ftp://sourceware.org/pub/pthreads-win32/pthreads-w32-2-9-1-release.tar.gz   pthreads-w32-2-9-1-release
-  cd pthreads-w32-2-9-1-release
+    local localdir="pthreads-w32-2-9-1-release"
+    download_and_unpack_file ftp://sourceware.org/pub/pthreads-win32/pthreads-w32-2-9-1-release.tar.gz ${localdir}   
+    cd ${archdir}/${localdir}
     do_make "clean GC-static CROSS=$cross_prefix"
-    cp libpthreadGC2.a $mingw_w64_x86_64_prefix/lib/libpthread.a || exit 1
-    cp pthread.h $mingw_w64_x86_64_prefix/include || exit 1
-  cd ..
+    cp libpthreadGC2.a $mingwprefix/lib/libpthread.a || exit 1
+    cp pthread.h $mingwprefix/include || exit 1
+    cd ${archdir}
 }
 
 build_libogg() {
@@ -482,29 +489,13 @@ build_libtheora() {
 }
 
 build_libfribidi() {
-    local localpath="fribidi-0.19.4"
-    download_and_unpack_file http://fribidi.org/download/fribidi-0.19.4.tar.bz2 ${localpath}
-    cd ${archdir}/${localpath}
+    local localdir="fribidi-0.19.4"
+    download_and_unpack_file http://fribidi.org/download/fribidi-0.19.4.tar.bz2 ${localdir}
+    cd ${archdir}/${localdir}
     if [[ ! -f already_ran_make ]]
     then
-        # export symbols right...
-        patch -f -p0 <<EOL
---- lib/fribidi-common.h	2008-02-04 21:30:46.000000000 +0000
-+++ lib/fribidi-common.h	2008-02-04 21:32:25.000000000 +0000
-@@ -53,11 +53,7 @@
- 
- /* FRIBIDI_ENTRY is a macro used to declare library entry points. */
- #ifndef FRIBIDI_ENTRY
--# if (defined(WIN32)) || (defined(_WIN32_WCE))
--#  define FRIBIDI_ENTRY __declspec(dllimport)
--# else /* !WIN32 */
- #  define FRIBIDI_ENTRY		/* empty */
--# endif	/* !WIN32 */
- #endif /* !FRIBIDI_ENTRY */
- 
- #if FRIBIDI_USE_GLIB+0
-
-EOL
+        sed -i -e '/(defined(_WIN32_WCE))/,+2d' lib/fribidi-common.h
+        sed -i -e '/!WIN32/,d' lib/fribidi-common.h
     fi
     generic_configure
     do_make_install
@@ -518,8 +509,9 @@ build_libass() {
 }
 
 build_gmp() {
-    download_and_unpack_file ftp://ftp.gnu.org/gnu/gmp/gmp-5.0.5.tar.bz2 gmp-5.0.5
-    cd ${archdir}/gmp-5.0.5
+    local localdir="gmp-5.0.5"
+    download_and_unpack_file ftp://ftp.gnu.org/gnu/gmp/gmp-5.0.5.tar.bz2 ${localdir}
+    cd ${archdir}/${localdir}
     generic_configure "ABI=$bits_target"
     do_make_install
     cd ${archdir}
@@ -541,16 +533,18 @@ build_libnettle() {
 }
 
 build_zlib() {
-    download_and_unpack_file http://zlib.net/zlib-1.2.7.tar.gz zlib-1.2.7
-    cd ${archdir}/zlib-1.2.7
+    local localdir="zlib-1.2.7"
+    download_and_unpack_file http://zlib.net/zlib-1.2.7.tar.gz ${localdir}
+    cd ${archdir}/${localdir}
     do_configure "--static --prefix=$mingwprefix"
     do_make_install "CC=$(echo $cross_prefix)gcc AR=$(echo $cross_prefix)ar RANLIB=$(echo $cross_prefix)ranlib"
     cd ${archdir}
 }
 
 build_libxvid() {
-    download_and_unpack_file http://downloads.xvid.org/downloads/xvidcore-1.3.2.tar.gz xvidcore
-    cd ${archdir}/xvidcore/build/generic
+    local localdir="xvidcore"
+    download_and_unpack_file http://downloads.xvid.org/downloads/xvidcore-1.3.2.tar.gz ${localdir}
+    cd ${archdir}/${localdir}/build/generic
     if [ "$bits_target" = "64" ]
     then
         # kludgey work arounds for 64 bit
@@ -573,7 +567,7 @@ build_libxvid() {
 build_fontconfig() {
     local localdir="fontconfig-2.10.1"
     download_and_unpack_file http://www.freedesktop.org/software/fontconfig/release/fontconfig-2.10.1.tar.gz ${localdir}
-    cd ${localdir}
+    cd ${archdir}/${localdir}
     if $libexeok && [ ! -f "${basedir}/lib" ]
     then
         ln -s "${libexepath}" "${basedir}/lib"
@@ -585,26 +579,25 @@ build_fontconfig() {
     sed -i 's/-L${libdir} -lfontconfig[^l]*$/-L${libdir} -lfontconfig -lfreetype -lexpat/' "$PKG_CONFIG_PATH/fontconfig.pc"
 }
 
-build_libnut() {
-    local localdir="libnut"
-    if [[ -d "${archdir}/${localdir}" ]]
-    then
-        cd ${archdir}/${localdir}
-        local githash_old=`git rev-parse --short HEAD`
-        cd ${archdir}
-    else
-        local githash_old="0"
-    fi
-    do_git_checkout git://git.ffmpeg.org/nut ${localdir}
+build_openssl() {
+    local localdir="openssl-1.0.1c"
+    download_and_unpack_file http://www.openssl.org/source/openssl-1.0.1c.tar.gz ${localdir}
     cd ${archdir}/${localdir}
-    local githash=`git rev-parse --short HEAD`
-    if [[ "${githash_old}" != "${githash}" ]]
+    export cross="$cross_prefix"
+    export CC="${cross}gcc"
+    export AR="${cross}ar"
+    export RANLIB="${cross}ranlib"
+    if [ "$bits_target" = "32" ]
     then
-        cd ${archdir}/${localdir}/src/trunk
-        make clean 
-        make CC="${cross_prefix}gcc" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib" && echo -e "${PASS}libnut built.${RST}" || echo -e "${WARN}Making libnut failed!${RST}"
-        make install prefix="${mingwprefix}" && echo -e "${PASS}libnut installed.${RST}\n" || echo -e "${WARN}libnut install failed!.${RST}\n"
+        do_configure "--prefix=$mingwprefix no-shared mingw" ./Configure
+    else
+        do_configure "--prefix=$mingwprefix no-shared mingw64" ./Configure
     fi
+    do_make_install
+    unset cross
+    unset CC
+    unset AR
+    unset RANLIB
     cd ${archdir}
 }
 
@@ -637,16 +630,6 @@ build_vo_aacenc() {
     generic_download_and_install http://sourceforge.net/projects/opencore-amr/files/vo-aacenc/vo-aacenc-0.1.2.tar.gz/download vo-aacenc-0.1.2
 }
 
-build_win32_pthreads() {
-    local localdir="pthreads-w32-2-9-1-release"
-    download_and_unpack_file ftp://sourceware.org/pub/pthreads-win32/pthreads-w32-2-9-1-release.tar.gz ${localdir}   
-    cd ${localdir}
-    do_make "clean GC-static CROSS=$cross_prefix"
-    cp libpthreadGC2.a $mingwprefix/lib/libpthread.a || exit 1
-    cp pthread.h $mingwprefix/include || exit 1
-    cd ${archdir}
-}
-
 build_sdl() {
     # apparently ffmpeg expects prefix-sdl-config not sdl-config that they give us, so rename...
     #-DDECLSPEC is needed for shared build
@@ -667,15 +650,6 @@ build_sdl() {
     rmdir temp
 }
 
-build_libopus() {
-    local localdir="libopus"
-    do_git_checkout git://git.opus-codec.org/opus.git ${localdir}
-    cd ${archdir}/${localdir}
-    do_configure "--host=$host_target --enable-static --disable-shared --prefix=$mingwprefix"
-    do_make_install
-    cd ${archdir}
-}
-
 build_faac() {
     local localdir="faac-1.28"
     generic_download_and_install http://downloads.sourceforge.net/faac/faac-1.28.tar.gz ${localdir} "--with-mp4v2=no"
@@ -694,7 +668,7 @@ build_lame() {
 build_bz2() {
     local localdir="bzip2-1.0.6"
     download_and_unpack_file http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz  ${localdir}
-    cd ${localdir}
+    cd ${archdir}/${localdir}
     if [ -f already_ran_make ]
     then
         file2patch="bzip2.c"
@@ -734,11 +708,34 @@ build_bz2() {
     cd ${archdir}
 }
 
+build_libnut() {
+    local localdir="libnut"
+    if [[ -d "${archdir}/${localdir}" ]]
+    then
+        cd ${archdir}/${localdir}
+        local githash_old=`git rev-parse --short HEAD`
+        cd ${archdir}
+    else
+        local githash_old="0"
+    fi
+    do_git_checkout git://git.ffmpeg.org/nut ${localdir}
+    cd ${archdir}/${localdir}
+    local githash=`git rev-parse --short HEAD`
+    if [[ "${githash_old}" != "${githash}" ]]
+    then
+        cd ${archdir}/${localdir}/src/trunk
+        make clean 
+        make CC="${cross_prefix}gcc" AR="${cross_prefix}ar" RANLIB="${cross_prefix}ranlib" && echo -e "${PASS}libnut built.${RST}" || echo -e "${WARN}Making libnut failed!${RST}"
+        make install prefix="${mingwprefix}" && echo -e "${PASS}libnut installed.${RST}\n" || echo -e "${WARN}libnut install failed!.${RST}\n"
+    fi
+    cd ${archdir}
+}
+
 build_ffmbc() {
     local localdir="FFmbc-0.7-rc7"
     local ffdate=`date +%Y%m%d`
     download_and_unpack_file http://ffmbc.googlecode.com/files/FFmbc-0.7-rc7.tar.bz2 ${localdir}
-    cd ${localdir}
+    cd ${archdir}/${localdir}
     local file2patch="libavcodec/dxva2_internal.h"
     if grep -Fxq "#include \"dxva.h\"" $file2patch
     then
@@ -856,19 +853,19 @@ build_ffmpeg() {
     local ffdate=`date +%Y%m%d` 
     local gitdir="ffmpeg_git"
     local localdir="ffmpeg-${ffreleaseversion}"
-    cd ${gitdir}   
+    cd ${archdir}/${gitdir}   
     if $ffgitmaster
     then
         git checkout master
         do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}  
-        cd ${gitdir}      
+        cd ${archdir}/${gitdir}      
         local ffgit=`git rev-parse --short HEAD` && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
         local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS} ffmpeg rev.: ${ffgitrev}${RST}\n" 
         local ffinstalldir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
     else
         git checkout release/${ffreleaseversion}
         do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}
-        cd ${gitdir}  
+        cd ${archdir}/${gitdir}  
         local ffgit=`git rev-parse --short HEAD` && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
         local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS}ffmpeg rev.: ${ffgitrev}${RST}\n"
         #download_and_unpack_file  http://ffmpeg.org/releases/ffmpeg-1.0.tar.gz ffmpeg-1.0 ${localdir}
@@ -934,7 +931,7 @@ build_ffmpeg() {
     local localdir=$(pwd)
     cd ${buildir}
     #cp docs to install dir
-    cp -r ${localdir}/doc ${ffinstallpath}/ 
+    cp -r ${archdir}/${localdir}/doc ${ffinstallpath}/ 
     if [[ ! "${bz2dir}" = "" && ! "${ffinstalldir}" = "" ]]
     then
         make_dir "${bz2dir}"
