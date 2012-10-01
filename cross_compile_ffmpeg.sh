@@ -385,12 +385,7 @@ build_libvpx() {
     download_and_unpack_file http://webm.googlecode.com/files/libvpx-v1.1.0.tar.bz2 ${localdir}
     cd ${archdir}/${localdir}
     export CROSS="$cross_prefix"
-    if [[ "$bits_target" = "32" ]]
-    then
-        do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
-    else
-        do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
-    fi
+    do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared --extra-cflags=-DPTW32_STATIC_LIB"
     do_make_install "extralibs='-lpthread'"
     cd ${archdir}
 }
