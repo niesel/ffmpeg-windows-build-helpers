@@ -58,7 +58,7 @@ askmequestions=true
 type -p lib.exe >/dev/null 2>&1 && libexeok=true || libexeok=false
 if $libexeok
 then
-    libexepath=`type -p lib.exe | head -n1 -q`
+    libexepath=$(type -p lib.exe | head -n1 -q)
 fi
 
 # Text color variables #########################################################
@@ -240,9 +240,9 @@ do_git_checkout() {
     else
         cd ${archdir}/${to_dir}
         echo -e "${INFO}Updating local git repository to latest $to_dir version.${RST}"
-        local old_git_version=`git rev-parse HEAD`
+        local old_git_version=$(git rev-parse HEAD)
         git pull
-        local new_git_version=`git rev-parse HEAD`
+        local new_git_version=$(git rev-parse HEAD)
         if [[ "$old_git_version" != "$new_git_version" ]]
         then
             echo -e "${PASS}${to_dir} updated..${RST}"
@@ -293,7 +293,7 @@ do_make() {
     then
         echo -e "${INFO}Making ${localdir} as:\nPATH=$PATH make ${extra_make_options} ${RST}"
         #make -s clean
-        make $extra_make_options || exit 1
+        make "${extra_make_options}" || exit 1
         touch already_ran_make
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
@@ -308,7 +308,7 @@ do_make_install() {
     then
         echo -e "${INFO}Making ${localdir} as:\n PATH=$PATH make ${extra_make_options} ${RST}"
         make -s clean
-        make $extra_make_options || exit 1
+        make "${extra_make_options}" || exit 1
         touch already_ran_make
         make install || exit 1
         touch already_ran_make_install
@@ -385,7 +385,7 @@ build_libvpx() {
     download_and_unpack_file http://webm.googlecode.com/files/libvpx-v1.1.0.tar.bz2 ${localdir}
     cd ${archdir}/${localdir}
     export CROSS="$cross_prefix"
-    do_configure "--target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared --extra-cflags=-DPTW32_STATIC_LIB"
+    do_configure "--extra-cflags=-DPTW32_STATIC_LIB --target=generic-gnu --prefix=$mingwprefix --enable-static --disable-shared"
     do_make_install "extralibs='-lpthread'"
     cd ${archdir}
 }
@@ -708,14 +708,14 @@ build_libnut() {
     if [[ -d "${archdir}/${localdir}" ]]
     then
         cd ${archdir}/${localdir}
-        local githash_old=`git rev-parse --short HEAD`
+        local githash_old=$(git rev-parse --short HEAD)
         cd ${archdir}
     else
         local githash_old="0"
     fi
     do_git_checkout git://git.ffmpeg.org/nut ${localdir}
     cd ${archdir}/${localdir}
-    local githash=`git rev-parse --short HEAD`
+    local githash=$(git rev-parse --short HEAD)
     if [[ "${githash_old}" != "${githash}" ]]
     then
         cd ${archdir}/${localdir}/src/trunk
@@ -728,7 +728,7 @@ build_libnut() {
 
 build_ffmbc() {
     local localdir="FFmbc-0.7-rc7"
-    local ffdate=`date +%Y%m%d`
+    local ffdate=$(date +%Y%m%d)
     download_and_unpack_file http://ffmbc.googlecode.com/files/FFmbc-0.7-rc7.tar.bz2 ${localdir}
     cd ${archdir}/${localdir}
     local file2patch="libavcodec/dxva2_internal.h"
@@ -810,7 +810,7 @@ build_ffmbc() {
     rm -f *.exe 
     
     echo -e "\n${INFO} ffmbc: doing PATH=$PATH make${RST}\n"
-    local cpucount=`grep -c ^processor /proc/cpuinfo`
+    local cpucount=$(grep -c ^processor /proc/cpuinfo)
     make clean
     make -j${cpucount} || exit 1
     make install && echo -e "${PASS} Successfully did make and install ${localdir} ${RST}\n"
@@ -845,7 +845,7 @@ build_ffmpeg() {
         local arch=x86_64
     fi
     local ffarch="win${bits_target}"
-    local ffdate=`date +%Y%m%d` 
+    local ffdate=$(date +%Y%m%d) 
     local gitdir="ffmpeg_git"
     local localdir="ffmpeg-${ffreleaseversion}"
     cd ${archdir}/${gitdir}   
@@ -854,15 +854,15 @@ build_ffmpeg() {
         git checkout master
         do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}  
         cd ${archdir}/${gitdir}      
-        local ffgit=`git rev-parse --short HEAD` && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
-        local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS} ffmpeg rev.: ${ffgitrev}${RST}\n" 
+        local ffgit=$(git rev-parse --short HEAD) && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
+        local ffgitrev=$(git rev-list HEAD | wc -l) && let ffgitrev-- && echo -e "${PASS} ffmpeg rev.: ${ffgitrev}${RST}\n" 
         local ffinstalldir="ffmpeg-${ffdate}-${ffgitrev}-${ffgit}-${ffarch}-${ffshared}"
     else
         git checkout release/${ffreleaseversion}
         do_git_checkout git://source.ffmpeg.org/ffmpeg.git ${gitdir}
         cd ${archdir}/${gitdir}  
-        local ffgit=`git rev-parse --short HEAD` && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
-        local ffgitrev=`git rev-list HEAD | wc -l` && let ffgitrev-- && echo -e "${PASS}ffmpeg rev.: ${ffgitrev}${RST}\n"
+        local ffgit=$(git rev-parse --short HEAD) && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
+        local ffgitrev=$(git rev-list HEAD | wc -l) && let ffgitrev-- && echo -e "${PASS}ffmpeg rev.: ${ffgitrev}${RST}\n"
         #download_and_unpack_file  http://ffmpeg.org/releases/ffmpeg-1.0.tar.gz ffmpeg-1.0 ${localdir}
         #cd ${localdir}
         local ffinstalldir="${localdir}-${ffdate}-${ffarch}-${ffshared}"
@@ -918,7 +918,7 @@ build_ffmpeg() {
     rm -f *.exe 
     
     echo -e "${INFO} ffmpeg: doing PATH=$PATH make${RST}\n"
-    local cpucount=`grep -c ^processor /proc/cpuinfo`
+    local cpucount=$(grep -c ^processor /proc/cpuinfo)
     make clean
     make -j${cpucount} || exit 1
     make install && echo -e "${PASS} Successfully did make and install ${localdir} ${RST}\n"
