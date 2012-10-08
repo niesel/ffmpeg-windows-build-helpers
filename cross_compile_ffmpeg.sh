@@ -293,7 +293,7 @@ do_make() {
     then
         echo -e "${INFO}Making ${localdir} as:\nPATH=$PATH make ${extra_make_options} ${RST}"
         #make -s clean
-        make "${extra_make_options}" || exit 1
+        make ${extra_make_options} || exit 1
         touch already_ran_make
         echo -e "${PASS}Successfully did make and install $(basename "$localdir") ${RST}\n"
     else
@@ -308,7 +308,7 @@ do_make_install() {
     then
         echo -e "${INFO}Making ${localdir} as:\n PATH=$PATH make ${extra_make_options} ${RST}"
         make -s clean
-        make "${extra_make_options}" || exit 1
+        make ${extra_make_options} || exit 1
         touch already_ran_make
         make install || exit 1
         touch already_ran_make_install
