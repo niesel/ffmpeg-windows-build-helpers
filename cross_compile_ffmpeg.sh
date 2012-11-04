@@ -258,7 +258,10 @@ do_git_checkout() {
 do_configure() {
     configure_options="$1"
     configure_name="$2"
-    [[ "$configure_name" = "" ]] && configure_name="./configure"
+    if [[ "$configure_name" = "" ]]
+    then
+        configure_name="./configure"
+    fi
     local localdir=$(pwd)
     local english_name=$(basename $localdir)
     # sanitize, disallow too long of length
@@ -271,7 +274,13 @@ do_configure() {
         rm -f already*
         # always distclean before configuring
         make -s distclean
-        [ -f autogen.sh ] && ./autogen.sh || [ -f bootstrap.sh ] && ./bootstrap.sh
+        if [ -f autogen.sh ]
+        then
+            ./autogen.sh
+        elif [ -f bootstrap.sh ] 
+        then
+            ./bootstrap.sh
+        fi
         echo -e "${INFO}Configuring $english_name\nPATH=$PATH $configure_name $configure_options${RST}"
         "$configure_name" $configure_options || exit 1
         touch -- "$touch_name"
