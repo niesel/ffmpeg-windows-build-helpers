@@ -664,13 +664,13 @@ build_bz2() {
     local localdir="bzip2-1.0.6"
     download_and_unpack_file http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz  ${localdir}
     cd ${archdir}/${localdir}
-    if [ -f already_ran_make ]
+    if [ ! -f already_ran_make_install ]
     then
         file2patch="bzip2.c"
-        if grep -Fxq "sys\\stat.h" $file2patch
+        if grep -Fq "sys\\stat.h" $file2patch
         then
             echo -e "${INFO}Patching ${file2patch} ${RST}"
-            sed -i 's@sys\\stat.h@sys/stat.h@' bzip2.c $file2patch
+            sed -i 's@sys\\stat.h@sys/stat.h@' $file2patch
         else
             echo -e "${PASS}Already patched ${file2patch} ${RST}"
         fi
@@ -682,8 +682,7 @@ build_bz2() {
         do_make "CC=$(echo $cross_prefix)gcc AR=$(echo $cross_prefix)ar RANLIB=$(echo $cross_prefix)ranlib"
         if [ ! -f already_ran_make_install ]
         then
-            make install "PREFIX=${mingwprefix}"
-            touch already_ran_make_install
+            make install "PREFIX=${mingwprefix}" || exit 1
             cd "${mingwprefix}/bin"
             mv -f bzip2 bzip2.exe
             mv -f bunzip2 bunzip2.exe
@@ -697,7 +696,8 @@ build_bz2() {
             cp -f bzdiff bzcmp.exe
             mv -f bzdiff bzdiff.exe
             rm bzcmp bzegrep bzfgrep bzless
-            touch 
+            cd ${archdir}/${localdir}
+            touch already_ran_make_install
         fi
     fi
     cd ${archdir}
@@ -847,7 +847,6 @@ build_ffmpeg() {
     local ffarch="win${bits_target}"
     local ffdate=$(date +%Y%m%d) 
     local gitdir="ffmpeg_git"
-    local localdir="ffmpeg-${ffreleaseversion}"
     cd ${archdir}/${gitdir}   
     if $ffgitmaster
     then
@@ -863,9 +862,7 @@ build_ffmpeg() {
         cd ${archdir}/${gitdir}  
         local ffgit=$(git rev-parse --short HEAD) && echo -e "${PASS}ffmpeg git hash (short): ${ffgit}${RST}"
         local ffgitrev=$(git rev-list HEAD | wc -l) && let ffgitrev-- && echo -e "${PASS}ffmpeg rev.: ${ffgitrev}${RST}\n"
-        #download_and_unpack_file  http://ffmpeg.org/releases/ffmpeg-1.0.tar.gz ffmpeg-1.0 ${localdir}
-        #cd ${localdir}
-        local ffinstalldir="${localdir}-${ffdate}-${ffarch}-${ffshared}"
+        local ffinstalldir="ffmpeg-${ffreleaseversion}-${ffdate}-${ffarch}-${ffshared}"
     fi
     if $ffvanilla
     then
@@ -921,7 +918,7 @@ build_ffmpeg() {
     local cpucount=$(grep -c ^processor /proc/cpuinfo)
     make clean
     make -j${cpucount} || exit 1
-    make install && echo -e "${PASS} Successfully did make and install ${localdir} ${RST}\n"
+    make install && echo -e "${PASS} Successfully did make and install ${installdir} ${RST}\n"
     
     local localdir=$(pwd)
     cd ${buildir}
