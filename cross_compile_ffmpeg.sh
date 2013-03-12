@@ -31,7 +31,7 @@ bz2dir="${basedir}/bz2"
 # Build from git master (true) or from release/x.xx (default: true)
 ffgitmaster=true
 # Which release No. should we build? 
-ffreleaseversion="1.0"
+ffreleaseversion="1.2"
 # Build static (default: true)
 ffbuildstatic=true
 # Build shared (default: false)
@@ -191,9 +191,9 @@ install_cross_compiler() {
     echo -e "${QUES}Enter to continue:${RST}\c"
     read -p ''
 
-    wget http://zeranoe.com/scripts/mingw_w64_build/mingw-w64-build-3.0.6 -O mingw-w64-build-3.0.6
-    chmod u+x mingw-w64-build-3.0.6
-    ./mingw-w64-build-3.0.6 --mingw-w64-ver=2.0.4 --disable-nls --disable-shared --default-configure --clean-build || exit 1
+    wget http://zeranoe.com/scripts/mingw_w64_build/mingw-w64-build-3.1.0 -O mingw-w64-build-3.1.0
+    chmod u+x mingw-w64-build-3.1.0
+    ./mingw-w64-build-3.1.0 --mingw-w64-ver=2.0.7 --disable-nls --disable-shared --default-configure --clean-build || exit 1
     if [ -d mingw-w64-x86_64 ]
     then
         touch mingw-w64-x86_64/compiler.done
