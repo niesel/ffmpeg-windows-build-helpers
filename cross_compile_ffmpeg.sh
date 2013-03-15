@@ -35,7 +35,7 @@ ffreleaseversion="1.2"
 # Build static (default: true)
 ffbuildstatic=true
 # Build shared (default: false)
-ffbuildshared=false
+ffbuildshared=true
 # make 32bit build (default: true)
 ff32=true
 # make 64bit build (default: true)
@@ -48,6 +48,7 @@ ffnonfree=true
 ffmpeg=true
 # build ffmbc (default: false)
 ffmbc=false
+ffmbcver="FFmbc-0.7-rc8"
 # build a 'light' version of ffmpeg (not all libs, personal prefs) (default: false)
 fflight=false
 # Ask me questions and show the intro or run only with options configured above! (default: true)
@@ -736,9 +737,9 @@ build_libnut() {
 }
 
 build_ffmbc() {
-    local localdir="FFmbc-0.7-rc7"
+    local localdir=${ffmbcver}
     local ffdate=$(date +%Y%m%d)
-    download_and_unpack_file http://ffmbc.googlecode.com/files/FFmbc-0.7-rc7.tar.bz2 ${localdir}
+    download_and_unpack_file http://ffmbc.googlecode.com/files/${ffmbcver}.tar.bz2 ${localdir}
     cd ${archdir}/${localdir}
     local file2patch="libavcodec/dxva2_internal.h"
     if grep -Fxq "#include \"dxva.h\"" $file2patch
@@ -793,7 +794,7 @@ build_ffmbc() {
     fi
     
     config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix" 
-    config_options="$config_options --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile"
+    config_options="$config_options --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile --disable-w32threads --extra-cflags=-DPTW32_STATIC_LIB"
     if ! $ffvanilla
     then
         config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread" 
