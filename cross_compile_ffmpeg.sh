@@ -54,10 +54,20 @@ fflight=false
 # Ask me questions and show the intro or run only with options configured above! (default: true)
 askmequestions=true
 ###
-if ${ffmbc} 
+echo $1
+if ${ffmbc} || [[ $1 -eq "ffmbc" ]]
 then
-    ffvanilla=true
-    ffnonfree=false
+    ffmbc=true
+    if [[ $2 -eq "full" ]]
+    then
+        ffvanilla=false
+        ffnonfree=true
+        ffshared=true
+        ffstatic=true
+    else
+        ffvanilla=true
+        ffnonfree=false
+    fi
     askmequestions=false
     ffmpeg=false
     fflight=false
@@ -761,7 +771,7 @@ build_ffmbc() {
         echo -e "${PASS}Already patched ${file2patch} ${RST}"
     else
         echo -e "${INFO}Patching ${file2patch} ${RST}"
-        #sed -i '28 i#include \"dxva.h\"' $file2patch
+        sed -i '28 i#include \"dxva.h\"' $file2patch
     fi
     file2patch="libavdevice/dshow_filter.c"
     if grep -Fxq "#define NO_DSHOW_STRSAFE" $file2patch
@@ -769,7 +779,7 @@ build_ffmbc() {
         echo -e "${PASS}Already patched ${file2patch} ${RST}"
     else
         echo -e "${INFO}Patching ${file2patch} ${RST}"
-        #sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
+        sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
     fi
     local file2patch="libavdevice/dshow_pin.c"
     if grep -Fxq "#define NO_DSHOW_STRSAFE" $file2patch
@@ -777,7 +787,7 @@ build_ffmbc() {
         echo -e "${PASS}Already patched ${file2patch} ${RST}"
     else
         echo -e "${INFO}Patching ${file2patch} ${RST}"
-        #sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
+        sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
     fi
     
     if [[ "$1" = "shared" ]]
@@ -1025,7 +1035,7 @@ build_all() {
     if $ffbuildshared
     then
         # only build vanilla shared libs, as others failATM
-        if $ffmbc && $ffvanilla
+        if $ffmbc #&& $ffvanilla
         then
             build_ffmbc shared
         fi
