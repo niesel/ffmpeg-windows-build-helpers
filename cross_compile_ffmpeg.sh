@@ -53,7 +53,15 @@ ffmbcver="FFmbc-0.7-rc8"
 fflight=false
 # Ask me questions and show the intro or run only with options configured above! (default: true)
 askmequestions=true
-
+###
+if ${ffmbc} 
+then
+    ffvanilla=true
+    ffnonfree=false
+    askmequestions=false
+    ffmpeg=false
+    fflight=false
+fi
 ################################################################################
 
 type -p lib.exe >/dev/null 2>&1 && libexeok=true || libexeok=false
@@ -194,7 +202,7 @@ install_cross_compiler() {
 
     wget http://zeranoe.com/scripts/mingw_w64_build/mingw-w64-build-3.1.0 -O mingw-w64-build-3.1.0
     chmod u+x mingw-w64-build-3.1.0
-    ./mingw-w64-build-3.1.0 --mingw-w64-ver=2.0.7 --disable-nls --disable-shared --default-configure --clean-build || exit 1
+    ./mingw-w64-build-3.1.0 --mingw-w64-ver=2.0.7 --disable-nls --disable-shared --default-configure --clean-build --threads=pthreads-w32 || exit 1
     if [ -d mingw-w64-x86_64 ]
     then
         touch mingw-w64-x86_64/compiler.done
@@ -331,11 +339,13 @@ do_make_install() {
 download_and_unpack_file() {
     url="$1"
     output_name=$(basename $url)
+    echo $output_name
     output_dir="$2"
     if [ ! -f "$output_dir/unpacked.successfully" ]
     then
-        if [ ! -f "$output_name" ]
+        if [ ! -s "$output_name" ]
         then
+            rm $output_name
             wget "$url" -O "$output_name" || exit 1
         fi
         tar -xf "$output_name" || unzip $output_name || exit 1
@@ -370,12 +380,14 @@ build_librtmp() {
     local localdir="rtmpdump_git"
     do_git_checkout "http://repo.or.cz/r/rtmpdump.git" ${localdir}
     cd ${archdir}/${localdir}/librtmp
-        if [ ! -f "already_gnutls" ]
-        then
-            make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" && touch already_gnutls || exit 1
-        fi
-        touch already_ran_make_install
-        echo -e "${PASS}Successfully did make and install librtmp ${RST}\n"
+    if [ ! -f "already_ran_make_install" ]
+    then
+        #do_make_install "CRYPTO=GNUTLS OPT=-O2 CROSS_COMPILE=$cross_prefix SHARED=no prefix=$mingwprefix"
+        make install CRYPTO=GNUTLS OPT='-O2 -g' "CROSS_COMPILE=$cross_prefix" SHARED=no "prefix=$mingwprefix" || exit 1
+        #sed -i 's/-lrtmp -lz/-lrtmp -lwinmm -lz/' "$PKG_CONFIG_PATH/librtmp.pc"
+    fi
+    touch already_ran_make_install
+    echo -e "${PASS}Successfully did make and install librtmp ${RST}\n"
     cd ${archdir}
 }
 
@@ -499,8 +511,10 @@ build_libfribidi() {
     cd ${archdir}/${localdir}
     if [[ ! -f already_ran_make ]]
     then
-        sed -i -e '/(defined(_WIN32_WCE))/,+2d' lib/fribidi-common.h
-        sed -i -e '/!WIN32/,d' lib/fribidi-common.h
+        # sed -i -e '/(defined(_WIN32_WCE))/,+2d' lib/fribidi-common.h
+        # sed -i -e '/!WIN32/,d' lib/fribidi-common.h
+        sed -i -e '/#ifndef\sFRIBIDI_ENTRY/,+3d' lib/fribidi-common.h
+        sed -i -e '/!WIN32/,+1d' lib/fribidi-common.h
     fi
     generic_configure
     do_make_install
@@ -624,7 +638,7 @@ build_fdk_aac() {
 }
 
 build_libexpat() {
-  generic_download_and_install http://sourceforge.net/projects/expat/files/expat/2.1.0/expat-2.1.0.tar.gz/download expat-2.1.0 --with-gnu-ld
+  generic_download_and_install http://sourceforge.net/projects/expat/files/expat/2.1.0/expat-2.1.0.tar.gz expat-2.1.0 --with-gnu-ld
 }
 
 build_freetype() {
@@ -632,7 +646,7 @@ build_freetype() {
 } 
 
 build_vo_aacenc() {
-    generic_download_and_install http://sourceforge.net/projects/opencore-amr/files/vo-aacenc/vo-aacenc-0.1.2.tar.gz/download vo-aacenc-0.1.2
+    generic_download_and_install http://sourceforge.net/projects/opencore-amr/files/vo-aacenc/vo-aacenc-0.1.2.tar.gz vo-aacenc-0.1.2
 }
 
 build_sdl() {
@@ -667,7 +681,7 @@ build_faac() {
 }
 
 build_lame() {
-    generic_download_and_install http://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz/download lame-3.99.5
+    generic_download_and_install http://sourceforge.net/projects/lame/files/lame/3.99/lame-3.99.5.tar.gz lame-3.99.5
 }
 
 build_bz2() {
@@ -747,7 +761,7 @@ build_ffmbc() {
         echo -e "${PASS}Already patched ${file2patch} ${RST}"
     else
         echo -e "${INFO}Patching ${file2patch} ${RST}"
-        sed -i '28 i#include \"dxva.h\"' $file2patch
+        #sed -i '28 i#include \"dxva.h\"' $file2patch
     fi
     file2patch="libavdevice/dshow_filter.c"
     if grep -Fxq "#define NO_DSHOW_STRSAFE" $file2patch
@@ -755,7 +769,7 @@ build_ffmbc() {
         echo -e "${PASS}Already patched ${file2patch} ${RST}"
     else
         echo -e "${INFO}Patching ${file2patch} ${RST}"
-        sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
+        #sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
     fi
     local file2patch="libavdevice/dshow_pin.c"
     if grep -Fxq "#define NO_DSHOW_STRSAFE" $file2patch
@@ -763,7 +777,7 @@ build_ffmbc() {
         echo -e "${PASS}Already patched ${file2patch} ${RST}"
     else
         echo -e "${INFO}Patching ${file2patch} ${RST}"
-        sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
+        #sed -i '22 i#define NO_DSHOW_STRSAFE' $file2patch
     fi
     
     if [[ "$1" = "shared" ]]
@@ -794,7 +808,12 @@ build_ffmbc() {
     fi
     
     config_options="--prefix=$ffinstallpath --enable-memalign-hack --arch=$arch --enable-gpl --enable-avisynth --target-os=mingw32 --cross-prefix=$cross_prefix" 
-    config_options="$config_options --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile --disable-w32threads --extra-cflags=-DPTW32_STATIC_LIB"
+    config_options="$config_options --pkg-config=pkg-config --enable-runtime-cpudetect --enable-cross-compile --enable-pthreads --extra-cflags=-DPTW32_STATIC_LIB" 
+    ### nothing                                                 -> won't build (pthread linker error)
+    ### --disable-w32threads --extra-cflags=-DPTW32_STATIC_LIB" -> only 1 CPU used
+    ### --disable-pthreads                                      -> only 1 CPU used
+    ### --disable-pthreads --enable-w32threads                  -> The requested thread algorithm is not supported with this thread library. only one CPU used
+    ### --enable-pthreads --disable-w32threads                  -> won't build (pthreads linker error)
     if ! $ffvanilla
     then
         config_options="$config_options --enable-zlib --enable-bzlib --enable-libx264 --enable-libmp3lame --enable-libvpx --extra-libs=-lws2_32 --extra-libs=-lpthread" 
@@ -1083,7 +1102,7 @@ fi
 
 export PATH="${original_path}"
 cd ${basedir}
-echo -e "${PASS}\n All complete. Ending ffmpeg cross compiler script.\n${PASS} Bye. ;-) ${RST}\n "
+echo -e "${PASS}\n All complete. Ending ffmpeg cross compiler script.\n${PASS} Bye.${RST}\n "
 
 exit 0
 
