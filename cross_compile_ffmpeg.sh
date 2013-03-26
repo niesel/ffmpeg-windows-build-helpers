@@ -54,10 +54,10 @@ fflight=false
 # Ask me questions and show the intro or run only with options configured above! (default: true)
 askmequestions=true
 ###
-echo $1
-if ${ffmbc} || [[ $1 -eq "ffmbc" ]]
+if [ $ffmbc = true -o "${1}" = "ffmbc" ]
 then
     ffmbc=true
+    echo "Building FFmbc Version ${ffmbcver}"
     if [[ $2 -eq "full" ]]
     then
         ffvanilla=false
