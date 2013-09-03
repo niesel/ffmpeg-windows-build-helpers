@@ -1,3 +1,14 @@
+
+### WARNING ###
+
+This script is made primarly for my own use, it might not work for you!
+
+
+
+
+
+
+
 ffmpeg-windows-build-helpers
 ============================
 
